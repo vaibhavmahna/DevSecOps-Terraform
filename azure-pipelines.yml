@@ -1,0 +1,147 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pr:
+  branches:
+    include:
+      - master
+      - feature/*
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  terraformVersion: "1.9.8"
+
+###############################################################
+#                         CI STAGE
+###############################################################
+stages:
+  - stage: CI
+    displayName: "Terraform Security CI (Generic Azure Resources)"
+    jobs:
+      - job: ValidateAndScan
+        displayName: "Terraform Validate & Security Scan"
+
+        steps:
+          - checkout: self
+
+          ###############################################################
+          # 1. Install Terraform
+          ###############################################################
+          - task: TerraformInstaller@1
+            displayName: "Install Terraform"
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          ###############################################################
+          # 2. Terraform Init, Fmt, Validate
+          ###############################################################
+          - script: |
+              echo "==> Terraform FMT (recursive)"
+              terraform fmt -check -recursive .
+
+              echo "==> Terraform Init & Validate (per module)"
+              FAILED=0
+              for m in modules/*/*/; do
+                echo "--- $m ---"
+                if ! (cd "$m" && terraform init -backend=false -input=false && terraform validate); then
+                  echo "[FAIL] $m"
+                  FAILED=1
+                fi
+              done
+              exit $FAILED
+            displayName: "Terraform Fmt, Init & Validate (all modules)"
+
+          ###############################################################
+          # 3. Secret Hygiene (Gitleaks + TruffleHog)
+          ###############################################################
+
+          # ---- Gitleaks ----
+          - script: |
+              echo "Running Gitleaks via Docker..."
+              docker run --rm \
+                -v $(System.DefaultWorkingDirectory):/repo \
+                zricethezav/gitleaks:latest \
+                detect --source=/repo --no-banner --redact || true
+            displayName: "Gitleaks Secret Scan (Docker Method)"
+
+          # ---- TruffleHog ----
+          - script: |
+              echo "Running TruffleHog Deep Secret Scan via Docker..."
+              docker run --rm \
+                -v $(System.DefaultWorkingDirectory):/repo \
+                trufflesecurity/trufflehog:latest \
+                filesystem /repo || true
+            displayName: "TruffleHog Deep Secret Scan"
+
+          ###############################################################
+          # 4. tfsec Scan (JSON Output for AI Analyzer)
+          ###############################################################
+          - script: |
+              echo "Installing tfsec"
+              curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+              echo "Running tfsec with JSON output"
+              tfsec . --format json --out tfsec.json || true
+            displayName: "tfsec Scan"
+
+          ###############################################################
+          # 5. Checkov Scan (JSON Output for AI Analyzer)
+          ###############################################################
+          - script: |
+              echo "Installing Checkov"
+              pip install checkov
+
+              echo "Running Checkov with JSON output"
+              checkov -d . -o json > checkov.json || true
+            displayName: "Checkov Scan"
+
+          ###############################################################
+          # 6. AI Terraform Risk Analyzer (Initiative #3)
+          ###############################################################
+          - script: |
+              echo "Running AI Terraform Risk Analyzer..."
+              python3 risk-engine/ai-risk.py
+            displayName: "AI Terraform Risk Analyzer"
+
+          ###############################################################
+          # 7. Terrascan (Compliance Scan)
+          ###############################################################
+          - script: |
+              echo "Running Terrascan..."
+              docker run --rm \
+                -v $(System.DefaultWorkingDirectory):/iac \
+                tenable/terrascan:latest \
+                scan -d /iac || true
+            displayName: "Terrascan Scan"
+
+  ###############################################################
+  #                       BUILD STAGE
+  ###############################################################
+  - stage: Build
+    displayName: "Build Stage"
+    jobs:
+      - job: Build
+        displayName: "Build Job"
+        pool:
+          vmImage: ubuntu-latest
+
+        steps:
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: "$(System.DefaultWorkingDirectory)"
+              Contents: |
+                **
+                !.git/**
+              TargetFolder: "$(Build.ArtifactStagingDirectory)"
+              OverWrite: true
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "Plixa-IaC"
+              publishLocation: "Container"
