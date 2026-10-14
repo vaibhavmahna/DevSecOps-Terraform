@@ -32,6 +32,12 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 15
+    concurrency:
+      # Serialize deploys per branch/environment so two pushes in quick
+      # succession queue instead of racing the same state file.
+      group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
+      cancel-in-progress: false
     env:
       # Force the azurerm provider/backend to use native OIDC auth instead of
       # auto-detecting the az-login CLI session from the step below (that
@@ -121,6 +127,10 @@ jobs:
     # Configure required reviewers under Settings > Environments for each
     # of dev-terraform, staging-terraform, and prod-terraform.
     environment: ${{ needs.plan.outputs.environment }}-terraform
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
+      cancel-in-progress: false
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
