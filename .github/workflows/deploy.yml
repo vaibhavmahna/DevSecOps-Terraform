@@ -24,6 +24,15 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    env:
+      # Force the azurerm provider/backend to use native OIDC auth instead of
+      # auto-detecting the az-login CLI session from the step below (that
+      # session is a Service Principal login, which azurerm's CLI auth mode
+      # explicitly refuses - "only supported as a User").
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
     outputs:
       environment: ${{ steps.resolve.outputs.environment }}
       working_directory: ${{ steps.resolve.outputs.working_directory }}
@@ -93,6 +102,11 @@ jobs:
     # Configure required reviewers under Settings > Environments for each
     # of dev-terraform, staging-terraform, and prod-terraform.
     environment: ${{ needs.plan.outputs.environment }}-terraform
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
