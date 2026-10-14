@@ -1,6 +1,6 @@
 project_name = "plx-sandbox-app"
 environment  = "dev"
-location     = "eastus"
+location     = "canadacentral"
 
 tags = {
   environment = "dev"
