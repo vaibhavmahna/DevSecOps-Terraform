@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       working_directory:
-        description: "Project folder to deploy (relative to repo root). Leave blank to use the default."
+        description: "Project folder to deploy (relative to repo root). Leave blank to auto-detect changed projects."
         required: false
 
 env:
@@ -28,8 +28,61 @@ permissions:
   contents: read
 
 jobs:
+  detect-changes:
+    name: Detect Changed Modules & Projects
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.detect.outputs.modules }}
+      projects: ${{ steps.detect.outputs.projects }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed modules & projects
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WD="${{ inputs.working_directory }}"
+            if [ -z "$WD" ]; then WD="$DEFAULT_PROJECT_DIR"; fi
+            PROJECTS="[\"$WD\"]"
+            # A manual run is a deliberate human action - validate every
+            # module as a full safety net rather than trying to infer intent.
+            MODULES=$(find modules -mindepth 2 -maxdepth 2 -type d | jq -R . | jq -sc .)
+          else
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              BASE="${{ github.event.pull_request.base.sha }}"
+            else
+              BASE="${{ github.event.before }}"
+            fi
+
+            if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+              echo "No valid base commit to diff against - treating everything as changed"
+              CHANGED_FILES=""
+              FULL=1
+            else
+              CHANGED_FILES=$(git diff --name-only "$BASE" "${{ github.sha }}")
+              FULL=0
+            fi
+
+            if [ "$FULL" = "1" ]; then
+              MODULES=$(find modules -mindepth 2 -maxdepth 2 -type d | jq -R . | jq -sc .)
+              PROJECTS=$(find projects -mindepth 1 -maxdepth 1 -type d | jq -R . | jq -sc .)
+            else
+              MODULES=$(echo "$CHANGED_FILES" | grep '^modules/' | cut -d/ -f1-3 | sort -u | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+              PROJECTS=$(echo "$CHANGED_FILES" | grep '^projects/' | cut -d/ -f1-2 | sort -u | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+            fi
+          fi
+
+          echo "modules=$MODULES" >> "$GITHUB_OUTPUT"
+          echo "projects=$PROJECTS" >> "$GITHUB_OUTPUT"
+          echo "Changed modules: $MODULES"
+          echo "Changed projects: $PROJECTS"
+
   validate-and-scan:
     name: Terraform Validate & Security Scan
+    needs: detect-changes
     # Only runs as the PR-time gate (or on a manual run). A pull_request
     # event checks out the hypothetical merge result, so re-running this
     # again on the post-merge push would check identical content in the
@@ -49,14 +102,15 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Terraform Fmt, Init & Validate (all modules)
-        run: |
-          echo "==> Terraform FMT (recursive)"
-          terraform fmt -check -recursive .
+      - name: Terraform Fmt (recursive, whole repo)
+        run: terraform fmt -check -recursive .
 
-          echo "==> Terraform Init & Validate (per module)"
+      - name: Terraform Init & Validate (changed modules only)
+        run: |
+          MODULES='${{ needs.detect-changes.outputs.modules }}'
+          echo "Validating: $MODULES"
           FAILED=0
-          for m in modules/*/*/; do
+          for m in $(echo "$MODULES" | jq -r '.[]'); do
             echo "--- $m ---"
             if ! (cd "$m" && terraform init -backend=false -input=false && terraform validate); then
               echo "[FAIL] $m"
@@ -96,31 +150,34 @@ jobs:
 
   plan:
     name: Terraform Plan
-    needs: validate-and-scan
+    needs: [detect-changes, validate-and-scan]
     # Only plan/apply on an actual branch push or a manual run - never on a
     # bare PR-open, since that would attempt to plan code that isn't merged
     # into dev/staging/master yet. validate-and-scan is skipped (not failed)
     # on a push event by design - proceed in that case, only block if it
-    # actually ran (PR/manual) and failed.
+    # actually ran (PR/manual) and failed. Also skip entirely if nothing
+    # under projects/ actually changed - an empty matrix errors otherwise.
     if: |
       always() &&
       (needs.validate-and-scan.result == 'success' || needs.validate-and-scan.result == 'skipped') &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.detect-changes.outputs.projects != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        working_directory: ${{ fromJson(needs.detect-changes.outputs.projects) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      # Serialize deploys per branch/environment so two pushes in quick
+      # Serialize deploys per branch+project so two pushes in quick
       # succession queue instead of racing the same state file.
-      group: deploy-${{ github.ref_name }}
+      group: deploy-${{ github.ref_name }}-${{ matrix.working_directory }}
       cancel-in-progress: false
-    outputs:
-      environment: ${{ steps.resolve.outputs.environment }}
-      working_directory: ${{ steps.resolve.outputs.working_directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve environment & working directory
+      - name: Resolve environment
         id: resolve
         run: |
           case "${{ github.ref_name }}" in
@@ -129,20 +186,16 @@ jobs:
             master) ENVIRONMENT=prod ;;
             *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
           esac
-
-          WORKING_DIRECTORY="${{ inputs.working_directory }}"
-          if [ -z "$WORKING_DIRECTORY" ]; then
-            WORKING_DIRECTORY="$DEFAULT_PROJECT_DIR"
-          fi
+          ARTIFACT_SUFFIX=$(echo "${{ matrix.working_directory }}" | tr '/' '-')
 
           echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
-          echo "working_directory=$WORKING_DIRECTORY" >> "$GITHUB_OUTPUT"
-          echo "Deploying $WORKING_DIRECTORY to $ENVIRONMENT (branch: ${{ github.ref_name }})"
+          echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
+          echo "Planning ${{ matrix.working_directory }} for $ENVIRONMENT (branch: ${{ github.ref_name }})"
 
       - name: Terraform Azure Init
         uses: ./.github/actions/terraform-azure-init
         with:
-          working_directory: ${{ steps.resolve.outputs.working_directory }}
+          working_directory: ${{ matrix.working_directory }}
           environment: ${{ steps.resolve.outputs.environment }}
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -150,53 +203,71 @@ jobs:
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Plan
-        working-directory: ${{ steps.resolve.outputs.working_directory }}
+        working-directory: ${{ matrix.working_directory }}
         run: terraform plan -var-file="${{ steps.resolve.outputs.environment }}.tfvars" -out=tfplan
 
       - name: Upload plan artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-${{ steps.resolve.outputs.environment }}
-          path: ${{ steps.resolve.outputs.working_directory }}/tfplan
+          name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
+          path: ${{ matrix.working_directory }}/tfplan
 
   apply:
     name: Terraform Apply
-    needs: plan
-    # A bare custom `if:` still gets an implicit skip-cascade pre-check
-    # applied before the condition itself is evaluated - validate-and-scan
-    # being skipped (by design, on a push) further up the chain would force
-    # this job to skip regardless of what the condition says, unless it
-    # starts with always() to actually override that pre-check.
+    needs: [detect-changes, plan]
+    # Same always()-override reasoning as plan - a bare custom if still gets
+    # an implicit skip-cascade pre-check applied before it's evaluated.
     if: always() && needs.plan.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        working_directory: ${{ fromJson(needs.detect-changes.outputs.projects) }}
     runs-on: ubuntu-latest
     # Every environment (dev/staging/prod) pauses here for manual approval.
     # Configure required reviewers under Settings > Environments for each
     # of dev-terraform, staging-terraform, and prod-terraform.
-    environment: ${{ needs.plan.outputs.environment }}-terraform
+    # This key is evaluated before any step runs, so it can't reference
+    # steps.resolve's output - inline the same branch->environment mapping
+    # as a job-level expression instead.
+    environment: ${{ (github.ref_name == 'master' && 'prod' || github.ref_name) }}-terraform
     timeout-minutes: 30
     concurrency:
-      group: deploy-${{ github.ref_name }}
+      group: deploy-${{ github.ref_name }}-${{ matrix.working_directory }}
       cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve environment
+        id: resolve
+        run: |
+          case "${{ github.ref_name }}" in
+            dev) ENVIRONMENT=dev ;;
+            staging) ENVIRONMENT=staging ;;
+            master) ENVIRONMENT=prod ;;
+            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
+          esac
+          ARTIFACT_SUFFIX=$(echo "${{ matrix.working_directory }}" | tr '/' '-')
+
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
+
       - name: Download plan artifact
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-${{ needs.plan.outputs.environment }}
-          path: ${{ needs.plan.outputs.working_directory }}
+          name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
+          path: ${{ matrix.working_directory }}
 
       - name: Terraform Azure Init
         uses: ./.github/actions/terraform-azure-init
         with:
-          working_directory: ${{ needs.plan.outputs.working_directory }}
-          environment: ${{ needs.plan.outputs.environment }}
+          working_directory: ${{ matrix.working_directory }}
+          environment: ${{ steps.resolve.outputs.environment }}
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Apply
-        working-directory: ${{ needs.plan.outputs.working_directory }}
+        working-directory: ${{ matrix.working_directory }}
         run: terraform apply tfplan
