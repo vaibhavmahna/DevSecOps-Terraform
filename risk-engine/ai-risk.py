@@ -22,19 +22,6 @@ def load_json(path):
 
 
 # -----------------------------------------------------------
-# SCORING: tfsec
-# -----------------------------------------------------------
-def score_tfsec(report):
-    if not report:
-        return 0
-
-    # tfsec JSON format:
-    # { "results": [ {...}, {...} ] }
-    results = report.get("results", [])
-    return len(results)
-
-
-# -----------------------------------------------------------
 # SCORING: Checkov (Supports ALL formats)
 # -----------------------------------------------------------
 def score_checkov(report):
@@ -90,16 +77,13 @@ def risk_level(total):
 # -----------------------------------------------------------
 # MAIN EXECUTION
 # -----------------------------------------------------------
-tfsec_report = load_json("tfsec.json")
 checkov_report = load_json("checkov.json")
 
-tfsec_score = score_tfsec(tfsec_report)
 checkov_score = score_checkov(checkov_report)
 
-total_risk = tfsec_score + checkov_score
+total_risk = checkov_score
 
 print("\n===== SECURITY RISK SUMMARY =====")
-print(f"tfsec findings:      {tfsec_score}")
 print(f"Checkov findings:    {checkov_score}")
 print(f"---------------------------------")
 print(f"TOTAL FINDINGS:      {total_risk}")
