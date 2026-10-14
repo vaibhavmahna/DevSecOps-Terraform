@@ -162,6 +162,12 @@ jobs:
   apply:
     name: Terraform Apply
     needs: plan
+    # The default `if: success()` walks the *entire* upstream dependency
+    # chain, not just direct needs - so it also sees validate-and-scan
+    # (skipped by design on a push) and skips this job too, even though
+    # plan itself already succeeded. Check plan's own result explicitly
+    # instead of relying on the transitive default.
+    if: needs.plan.result == 'success'
     runs-on: ubuntu-latest
     # Every environment (dev/staging/prod) pauses here for manual approval.
     # Configure required reviewers under Settings > Environments for each
