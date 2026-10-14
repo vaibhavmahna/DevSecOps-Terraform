@@ -8,4 +8,8 @@ resource "azurerm_ai_foundry" "this" {
   application_insights_id = var.application_insights_id
   friendly_name           = var.friendly_name
   tags                    = var.tags
+
+  identity {
+    type = var.identity_type
+  }
 }
