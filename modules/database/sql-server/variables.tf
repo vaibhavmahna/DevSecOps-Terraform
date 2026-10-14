@@ -24,7 +24,7 @@ variable "administrator_login_password" {
   description = "Administrator login password for the SQL server. No default is provided; must be supplied by the caller."
 }
 
-variable "version" {
+variable "sql_version" {
   type        = string
   default     = "12.0"
   description = "Version of the SQL server to create."
