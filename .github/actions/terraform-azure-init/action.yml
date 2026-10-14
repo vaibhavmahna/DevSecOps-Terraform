@@ -17,13 +17,12 @@ inputs:
   azure_subscription_id:
     required: true
   backend_resource_group:
-    description: "Resource group holding the state storage account"
+    description: "Resource group holding the state storage account (same name in every subscription)"
     required: false
     default: "PA-Terraform"
   backend_storage_account:
-    description: "Storage account holding Terraform state"
-    required: false
-    default: "plixaterraform"
+    description: "Storage account holding Terraform state - differs per environment/subscription, no safe default"
+    required: true
 
 runs:
   using: "composite"

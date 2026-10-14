@@ -1,0 +1,55 @@
+name: "Resolve Environment"
+description: "Maps a deploy branch to its environment, Azure subscription, and backend storage account - the single source of truth for that mapping"
+
+inputs:
+  branch:
+    description: "Branch name being deployed (dev/staging/master)"
+    required: true
+  working_directory:
+    description: "Project directory, used to build a unique artifact name"
+    required: true
+
+outputs:
+  environment:
+    value: ${{ steps.resolve.outputs.environment }}
+  subscription_id:
+    value: ${{ steps.resolve.outputs.subscription_id }}
+  storage_account:
+    value: ${{ steps.resolve.outputs.storage_account }}
+  artifact_suffix:
+    value: ${{ steps.resolve.outputs.artifact_suffix }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: resolve
+      shell: bash
+      run: |
+        # Each environment lives in its own Azure subscription with its own
+        # backend storage account - dev/staging are isolated from prod at the
+        # subscription level, not just by state container name.
+        case "${{ inputs.branch }}" in
+          dev)
+            ENVIRONMENT=dev
+            SUBSCRIPTION_ID=60e90919-c364-4eeb-b9a4-2bb712f13e66
+            STORAGE_ACCOUNT=plixaterraformdev
+            ;;
+          staging)
+            ENVIRONMENT=staging
+            SUBSCRIPTION_ID=74129cac-cd36-4ab1-85f8-de471718e7b1
+            STORAGE_ACCOUNT=plixaterraformstaging
+            ;;
+          master)
+            ENVIRONMENT=prod
+            SUBSCRIPTION_ID=29656bfc-6f8f-4cba-873a-a41b08f82967
+            STORAGE_ACCOUNT=plixaterraform
+            ;;
+          *) echo "Unsupported branch for deploy: ${{ inputs.branch }}"; exit 1 ;;
+        esac
+        ARTIFACT_SUFFIX=$(echo "${{ inputs.working_directory }}" | tr '/' '-')
+
+        echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+        echo "subscription_id=$SUBSCRIPTION_ID" >> "$GITHUB_OUTPUT"
+        echo "storage_account=$STORAGE_ACCOUNT" >> "$GITHUB_OUTPUT"
+        echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
+        echo "${{ inputs.working_directory }} -> $ENVIRONMENT (subscription $SUBSCRIPTION_ID, backend $STORAGE_ACCOUNT)"

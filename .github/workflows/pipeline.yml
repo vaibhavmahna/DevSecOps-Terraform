@@ -179,18 +179,10 @@ jobs:
 
       - name: Resolve environment
         id: resolve
-        run: |
-          case "${{ github.ref_name }}" in
-            dev) ENVIRONMENT=dev ;;
-            staging) ENVIRONMENT=staging ;;
-            master) ENVIRONMENT=prod ;;
-            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
-          esac
-          ARTIFACT_SUFFIX=$(echo "${{ matrix.working_directory }}" | tr '/' '-')
-
-          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
-          echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
-          echo "Planning ${{ matrix.working_directory }} for $ENVIRONMENT (branch: ${{ github.ref_name }})"
+        uses: ./.github/actions/resolve-environment
+        with:
+          branch: ${{ github.ref_name }}
+          working_directory: ${{ matrix.working_directory }}
 
       - name: Terraform Azure Init
         uses: ./.github/actions/terraform-azure-init
@@ -200,7 +192,8 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_subscription_id: ${{ steps.resolve.outputs.subscription_id }}
+          backend_storage_account: ${{ steps.resolve.outputs.storage_account }}
 
       - name: Terraform Plan
         working-directory: ${{ matrix.working_directory }}
@@ -240,17 +233,10 @@ jobs:
 
       - name: Resolve environment
         id: resolve
-        run: |
-          case "${{ github.ref_name }}" in
-            dev) ENVIRONMENT=dev ;;
-            staging) ENVIRONMENT=staging ;;
-            master) ENVIRONMENT=prod ;;
-            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
-          esac
-          ARTIFACT_SUFFIX=$(echo "${{ matrix.working_directory }}" | tr '/' '-')
-
-          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
-          echo "artifact_suffix=$ARTIFACT_SUFFIX" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-environment
+        with:
+          branch: ${{ github.ref_name }}
+          working_directory: ${{ matrix.working_directory }}
 
       - name: Download plan artifact
         uses: actions/download-artifact@v4
@@ -266,7 +252,8 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_subscription_id: ${{ steps.resolve.outputs.subscription_id }}
+          backend_storage_account: ${{ steps.resolve.outputs.storage_account }}
 
       - name: Terraform Apply
         working-directory: ${{ matrix.working_directory }}
