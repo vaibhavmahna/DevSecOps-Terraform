@@ -1,0 +1,59 @@
+name: "Terraform Azure Init"
+description: "Authenticates to Azure via OIDC, installs Terraform, exports ARM_* vars for native provider OIDC auth, and runs terraform init against the per-environment backend"
+
+inputs:
+  working_directory:
+    description: "Directory containing the Terraform project to init"
+    required: true
+  environment:
+    description: "Environment name (dev/staging/prod) - selects the state container"
+    required: true
+  terraform_version:
+    required: true
+  azure_client_id:
+    required: true
+  azure_tenant_id:
+    required: true
+  azure_subscription_id:
+    required: true
+  backend_resource_group:
+    description: "Resource group holding the state storage account"
+    required: false
+    default: "PA-Terraform"
+  backend_storage_account:
+    description: "Storage account holding Terraform state"
+    required: false
+    default: "plixaterraform"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Export ARM_* OIDC auth vars
+      shell: bash
+      run: |
+        echo "ARM_CLIENT_ID=${{ inputs.azure_client_id }}" >> "$GITHUB_ENV"
+        echo "ARM_TENANT_ID=${{ inputs.azure_tenant_id }}" >> "$GITHUB_ENV"
+        echo "ARM_SUBSCRIPTION_ID=${{ inputs.azure_subscription_id }}" >> "$GITHUB_ENV"
+        echo "ARM_USE_OIDC=true" >> "$GITHUB_ENV"
+
+    - name: Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.azure_client_id }}
+        tenant-id: ${{ inputs.azure_tenant_id }}
+        subscription-id: ${{ inputs.azure_subscription_id }}
+
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform_version }}
+
+    - name: Terraform Init
+      working-directory: ${{ inputs.working_directory }}
+      shell: bash
+      run: |
+        terraform init \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="resource_group_name=${{ inputs.backend_resource_group }}" \
+          -backend-config="storage_account_name=${{ inputs.backend_storage_account }}" \
+          -backend-config="container_name=${{ inputs.environment }}-tfstate"
