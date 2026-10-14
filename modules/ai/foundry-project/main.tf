@@ -6,4 +6,8 @@ resource "azurerm_ai_foundry_project" "this" {
   friendly_name      = var.friendly_name
   description        = var.description
   tags               = var.tags
+
+  identity {
+    type = var.identity_type
+  }
 }

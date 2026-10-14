@@ -30,3 +30,14 @@ variable "tags" {
   default     = {}
   description = "Tags to apply to the resource."
 }
+
+variable "identity_type" {
+  type        = string
+  default     = "SystemAssigned"
+  description = "Managed identity type for the project (SystemAssigned, UserAssigned, or SystemAssigned, UserAssigned)."
+
+  validation {
+    condition     = contains(["SystemAssigned", "UserAssigned", "SystemAssigned, UserAssigned"], var.identity_type)
+    error_message = "identity_type must be SystemAssigned, UserAssigned, or \"SystemAssigned, UserAssigned\"."
+  }
+}
