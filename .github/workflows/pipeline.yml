@@ -30,6 +30,15 @@ permissions:
 jobs:
   validate-and-scan:
     name: Terraform Validate & Security Scan
+    # Only runs as the PR-time gate (or on a manual run). A pull_request
+    # event checks out the hypothetical merge result, so re-running this
+    # again on the post-merge push would check identical content in the
+    # common case - pure duplicate work. Trade-off: a squash-merge with
+    # subtly different final content, or a direct push bypassing the PR
+    # flow, would not get re-checked here - acceptable given branch
+    # protection already requires a PR for a solo-maintained repo; revisit
+    # if this repo ever gets more contributors.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -88,6 +97,9 @@ jobs:
   build:
     name: Build Stage
     needs: validate-and-scan
+    # validate-and-scan is skipped (not failed) on a push event by design -
+    # proceed in that case, only block if it actually ran and failed.
+    if: always() && (needs.validate-and-scan.result == 'success' || needs.validate-and-scan.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -106,8 +118,13 @@ jobs:
     needs: validate-and-scan
     # Only plan/apply on an actual branch push or a manual run - never on a
     # bare PR-open, since that would attempt to plan code that isn't merged
-    # into dev/staging/master yet.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # into dev/staging/master yet. validate-and-scan is skipped (not failed)
+    # on a push event by design - proceed in that case, only block if it
+    # actually ran (PR/manual) and failed.
+    if: |
+      always() &&
+      (needs.validate-and-scan.result == 'success' || needs.validate-and-scan.result == 'skipped') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
