@@ -94,25 +94,6 @@ jobs:
           echo "Running AI Terraform Risk Analyzer..."
           python3 risk-engine/ai-risk.py
 
-  build:
-    name: Build Stage
-    needs: validate-and-scan
-    # validate-and-scan is skipped (not failed) on a push event by design -
-    # proceed in that case, only block if it actually ran and failed.
-    if: always() && (needs.validate-and-scan.result == 'success' || needs.validate-and-scan.result == 'skipped')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Publish Plixa-IaC artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Plixa-IaC
-          path: |
-            .
-            !.git/**
-
   plan:
     name: Terraform Plan
     needs: validate-and-scan
