@@ -1,7 +1,14 @@
 name: Terraform Deploy
 
 on:
-  push:
+  # Only runs after "Terraform Security CI" finishes on dev/staging/master -
+  # see the job-level `if` below, which skips this entirely unless that run
+  # succeeded. This keeps plan/apply from racing the validate/security scan
+  # in parallel off the same push.
+  workflow_run:
+    workflows: ["Terraform Security CI"]
+    types:
+      - completed
     branches:
       - dev
       - staging
@@ -24,6 +31,7 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     env:
       # Force the azurerm provider/backend to use native OIDC auth instead of
       # auto-detecting the az-login CLI session from the step below (that
@@ -39,15 +47,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # On a workflow_run trigger, github.ref/github.sha point at the
+          # default branch, not the commit that actually triggered CI - pin
+          # to that exact commit instead.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - name: Resolve environment & working directory
         id: resolve
         run: |
-          case "${{ github.ref_name }}" in
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+
+          case "$BRANCH" in
             dev) ENVIRONMENT=dev ;;
             staging) ENVIRONMENT=staging ;;
             master) ENVIRONMENT=prod ;;
-            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
+            *) echo "Unsupported branch for deploy: $BRANCH"; exit 1 ;;
           esac
 
           WORKING_DIRECTORY="${{ inputs.working_directory }}"
@@ -57,7 +76,7 @@ jobs:
 
           echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
           echo "working_directory=$WORKING_DIRECTORY" >> "$GITHUB_OUTPUT"
-          echo "Deploying $WORKING_DIRECTORY to $ENVIRONMENT (branch: ${{ github.ref_name }})"
+          echo "Deploying $WORKING_DIRECTORY to $ENVIRONMENT (branch: $BRANCH)"
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -110,6 +129,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
