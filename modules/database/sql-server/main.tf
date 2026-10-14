@@ -4,7 +4,7 @@ resource "azurerm_mssql_server" "this" {
   location                     = var.location
   administrator_login          = var.administrator_login
   administrator_login_password = var.administrator_login_password
-  version                      = var.version
+  version                      = var.sql_version
   minimum_tls_version          = var.minimum_tls_version
   tags                         = var.tags
 }
