@@ -6,8 +6,8 @@ resource "azurerm_function_app_flex_consumption" "this" {
   location            = var.location
   service_plan_id     = var.service_plan_id
 
-  storage_container_type     = "blobContainer"
-  storage_container_endpoint = var.storage_container_endpoint
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = var.storage_container_endpoint
   storage_authentication_type = var.storage_authentication_type
   storage_access_key          = var.storage_access_key
 

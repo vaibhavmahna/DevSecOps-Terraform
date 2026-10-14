@@ -1,24 +1,20 @@
 name: Terraform Deploy
 
 on:
+  push:
+    branches:
+      - dev
+      - staging
+      - master
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: "sandbox"
-        type: choice
-        options:
-          - sandbox
-          - dev
-          - prod
       working_directory:
-        description: "Project folder to deploy (relative to repo root)"
-        required: true
-        default: "projects/plx-sandbox-app"
+        description: "Project folder to deploy (relative to repo root). Leave blank to use the default."
+        required: false
 
 env:
   TERRAFORM_VERSION: "1.9.8"
+  DEFAULT_PROJECT_DIR: "projects/plx-sandbox-app"
 
 permissions:
   id-token: write
@@ -28,9 +24,40 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    env:
+      # Force the azurerm provider/backend to use native OIDC auth instead of
+      # auto-detecting the az-login CLI session from the step below (that
+      # session is a Service Principal login, which azurerm's CLI auth mode
+      # explicitly refuses - "only supported as a User").
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+      working_directory: ${{ steps.resolve.outputs.working_directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve environment & working directory
+        id: resolve
+        run: |
+          case "${{ github.ref_name }}" in
+            dev) ENVIRONMENT=dev ;;
+            staging) ENVIRONMENT=staging ;;
+            master) ENVIRONMENT=prod ;;
+            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
+          esac
+
+          WORKING_DIRECTORY="${{ inputs.working_directory }}"
+          if [ -z "$WORKING_DIRECTORY" ]; then
+            WORKING_DIRECTORY="$DEFAULT_PROJECT_DIR"
+          fi
+
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "working_directory=$WORKING_DIRECTORY" >> "$GITHUB_OUTPUT"
+          echo "Deploying $WORKING_DIRECTORY to $ENVIRONMENT (branch: ${{ github.ref_name }})"
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -45,35 +72,41 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform Init
-        working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ steps.resolve.outputs.working_directory }}
         run: |
           terraform init \
-            -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
-            -backend-config="resource_group_name=rg-tfstate" \
-            -backend-config="storage_account_name=sttfstateplx" \
-            -backend-config="container_name=tfstate"
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="resource_group_name=PA-Terraform" \
+            -backend-config="storage_account_name=plixaterraform" \
+            -backend-config="container_name=${{ steps.resolve.outputs.environment }}-tfstate"
 
       - name: Terraform Validate
-        working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ steps.resolve.outputs.working_directory }}
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ${{ inputs.working_directory }}
-        run: terraform plan -var-file="${{ inputs.environment }}.tfvars" -out=tfplan
+        working-directory: ${{ steps.resolve.outputs.working_directory }}
+        run: terraform plan -var-file="${{ steps.resolve.outputs.environment }}.tfvars" -out=tfplan
 
       - name: Upload plan artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-${{ inputs.environment }}
-          path: ${{ inputs.working_directory }}/tfplan
+          name: tfplan-${{ steps.resolve.outputs.environment }}
+          path: ${{ steps.resolve.outputs.working_directory }}/tfplan
 
   apply:
     name: Terraform Apply
     needs: plan
     runs-on: ubuntu-latest
-    # Configure this environment under Settings > Environments with required
-    # reviewers to get a manual approval gate before apply runs.
-    environment: ${{ github.event.inputs.environment }}-terraform
+    # Every environment (dev/staging/prod) pauses here for manual approval.
+    # Configure required reviewers under Settings > Environments for each
+    # of dev-terraform, staging-terraform, and prod-terraform.
+    environment: ${{ needs.plan.outputs.environment }}-terraform
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,18 +126,18 @@ jobs:
       - name: Download plan artifact
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-${{ inputs.environment }}
-          path: ${{ inputs.working_directory }}
+          name: tfplan-${{ needs.plan.outputs.environment }}
+          path: ${{ needs.plan.outputs.working_directory }}
 
       - name: Terraform Init
-        working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ needs.plan.outputs.working_directory }}
         run: |
           terraform init \
-            -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
-            -backend-config="resource_group_name=rg-tfstate" \
-            -backend-config="storage_account_name=sttfstateplx" \
-            -backend-config="container_name=tfstate"
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="resource_group_name=PA-Terraform" \
+            -backend-config="storage_account_name=plixaterraform" \
+            -backend-config="container_name=${{ needs.plan.outputs.environment }}-tfstate"
 
       - name: Terraform Apply
-        working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ needs.plan.outputs.working_directory }}
         run: terraform apply tfplan
