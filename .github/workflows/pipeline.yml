@@ -1,0 +1,198 @@
+name: Terraform Pipeline
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - staging
+  pull_request:
+    branches:
+      - master
+      - dev
+      - staging
+      - "feature/**"
+      - develop
+  workflow_dispatch:
+    inputs:
+      working_directory:
+        description: "Project folder to deploy (relative to repo root). Leave blank to use the default."
+        required: false
+
+env:
+  TERRAFORM_VERSION: "1.9.8"
+  DEFAULT_PROJECT_DIR: "projects/plx-sandbox-app"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate-and-scan:
+    name: Terraform Validate & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Fmt, Init & Validate (all modules)
+        run: |
+          echo "==> Terraform FMT (recursive)"
+          terraform fmt -check -recursive .
+
+          echo "==> Terraform Init & Validate (per module)"
+          FAILED=0
+          for m in modules/*/*/; do
+            echo "--- $m ---"
+            if ! (cd "$m" && terraform init -backend=false -input=false && terraform validate); then
+              echo "[FAIL] $m"
+              FAILED=1
+            fi
+          done
+          exit $FAILED
+
+      # Gitleaks: fast, pure pattern-matching secret scan, no network calls.
+      # (TruffleHog was dropped - same job, but its live-credential
+      # verification step makes it much slower for no real benefit on a
+      # repo with no actual secrets ever committed.)
+      - name: Gitleaks Secret Scan (Docker Method)
+        run: |
+          echo "Running Gitleaks via Docker..."
+          docker run --rm \
+            -v ${{ github.workspace }}:/repo \
+            zricethezav/gitleaks:latest \
+            detect --source=/repo --no-banner --redact || true
+
+      # Checkov: actively-maintained IaC misconfiguration scanner with the
+      # broadest rule coverage of the IaC scanners considered. (tfsec and
+      # Terrascan were dropped - tfsec is archived upstream in favor of
+      # Trivy, and Terrascan's coverage significantly overlaps Checkov's.)
+      - name: Checkov Scan
+        run: |
+          echo "Installing Checkov"
+          pip install checkov
+
+          echo "Running Checkov with JSON output"
+          checkov -d . -o json > checkov.json || true
+
+      - name: AI Terraform Risk Analyzer
+        run: |
+          echo "Running AI Terraform Risk Analyzer..."
+          python3 risk-engine/ai-risk.py
+
+  build:
+    name: Build Stage
+    needs: validate-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish Plixa-IaC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plixa-IaC
+          path: |
+            .
+            !.git/**
+
+  plan:
+    name: Terraform Plan
+    needs: validate-and-scan
+    # Only plan/apply on an actual branch push or a manual run - never on a
+    # bare PR-open, since that would attempt to plan code that isn't merged
+    # into dev/staging/master yet.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      # Serialize deploys per branch/environment so two pushes in quick
+      # succession queue instead of racing the same state file.
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+      working_directory: ${{ steps.resolve.outputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve environment & working directory
+        id: resolve
+        run: |
+          case "${{ github.ref_name }}" in
+            dev) ENVIRONMENT=dev ;;
+            staging) ENVIRONMENT=staging ;;
+            master) ENVIRONMENT=prod ;;
+            *) echo "Unsupported branch for deploy: ${{ github.ref_name }}"; exit 1 ;;
+          esac
+
+          WORKING_DIRECTORY="${{ inputs.working_directory }}"
+          if [ -z "$WORKING_DIRECTORY" ]; then
+            WORKING_DIRECTORY="$DEFAULT_PROJECT_DIR"
+          fi
+
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "working_directory=$WORKING_DIRECTORY" >> "$GITHUB_OUTPUT"
+          echo "Deploying $WORKING_DIRECTORY to $ENVIRONMENT (branch: ${{ github.ref_name }})"
+
+      - name: Terraform Azure Init
+        uses: ./.github/actions/terraform-azure-init
+        with:
+          working_directory: ${{ steps.resolve.outputs.working_directory }}
+          environment: ${{ steps.resolve.outputs.environment }}
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Plan
+        working-directory: ${{ steps.resolve.outputs.working_directory }}
+        run: terraform plan -var-file="${{ steps.resolve.outputs.environment }}.tfvars" -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ steps.resolve.outputs.environment }}
+          path: ${{ steps.resolve.outputs.working_directory }}/tfplan
+
+  apply:
+    name: Terraform Apply
+    needs: plan
+    runs-on: ubuntu-latest
+    # Every environment (dev/staging/prod) pauses here for manual approval.
+    # Configure required reviewers under Settings > Environments for each
+    # of dev-terraform, staging-terraform, and prod-terraform.
+    environment: ${{ needs.plan.outputs.environment }}-terraform
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.plan.outputs.environment }}
+          path: ${{ needs.plan.outputs.working_directory }}
+
+      - name: Terraform Azure Init
+        uses: ./.github/actions/terraform-azure-init
+        with:
+          working_directory: ${{ needs.plan.outputs.working_directory }}
+          environment: ${{ needs.plan.outputs.environment }}
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Apply
+        working-directory: ${{ needs.plan.outputs.working_directory }}
+        run: terraform apply tfplan
