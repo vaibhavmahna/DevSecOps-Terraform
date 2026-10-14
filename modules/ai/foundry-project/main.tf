@@ -3,7 +3,7 @@ resource "azurerm_ai_foundry_project" "this" {
   name               = var.name
   location           = var.location
   ai_services_hub_id = var.ai_services_hub_id
-  friendly_name       = var.friendly_name
-  description         = var.description
-  tags                = var.tags
+  friendly_name      = var.friendly_name
+  description        = var.description
+  tags               = var.tags
 }
