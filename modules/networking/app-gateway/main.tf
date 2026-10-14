@@ -1,11 +1,11 @@
 locals {
-  gateway_ip_configuration_name = "${var.name}-gwipconf"
-  frontend_port_name            = "${var.name}-feport"
+  gateway_ip_configuration_name  = "${var.name}-gwipconf"
+  frontend_port_name             = "${var.name}-feport"
   frontend_ip_configuration_name = "${var.name}-feip"
-  backend_address_pool_name     = "${var.name}-beap"
-  backend_http_settings_name    = "${var.name}-behttp"
-  http_listener_name            = "${var.name}-httplstn"
-  request_routing_rule_name     = "${var.name}-rqrt"
+  backend_address_pool_name      = "${var.name}-beap"
+  backend_http_settings_name     = "${var.name}-behttp"
+  http_listener_name             = "${var.name}-httplstn"
+  request_routing_rule_name      = "${var.name}-rqrt"
 }
 
 resource "azurerm_application_gateway" "this" {
