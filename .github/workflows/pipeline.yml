@@ -16,12 +16,15 @@ on:
   workflow_dispatch:
     inputs:
       working_directory:
-        description: "Project folder to deploy (relative to repo root). Leave blank to auto-detect changed projects."
+        description: "Project folder to deploy (relative to repo root). Leave blank to use the default project."
         required: false
 
 env:
   TERRAFORM_VERSION: "1.9.8"
   DEFAULT_PROJECT_DIR: "projects/plx-sandbox-app"
+  # Non-interactive mode: Terraform fails fast on missing input instead of
+  # waiting for a prompt until the job times out.
+  TF_IN_AUTOMATION: "true"
 
 permissions:
   id-token: write
@@ -43,13 +46,17 @@ jobs:
       - name: Detect changed modules & projects
         id: detect
         run: |
+          to_json() { jq -R 'select(length > 0)' | jq -sc .; }
+
+          ALL_MODULES=$(find modules -mindepth 2 -maxdepth 2 -type d | sort)
+          ALL_PROJECTS=$(find projects -mindepth 1 -maxdepth 1 -type d | sort)
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            WD="${{ inputs.working_directory }}"
-            if [ -z "$WD" ]; then WD="$DEFAULT_PROJECT_DIR"; fi
-            PROJECTS="[\"$WD\"]"
             # A manual run is a deliberate human action - validate every
-            # module as a full safety net rather than trying to infer intent.
-            MODULES=$(find modules -mindepth 2 -maxdepth 2 -type d | jq -R . | jq -sc .)
+            # module as a full safety net rather than inferring intent.
+            MODULES="$ALL_MODULES"
+            PROJECTS="${{ inputs.working_directory }}"
+            [ -z "$PROJECTS" ] && PROJECTS="$DEFAULT_PROJECT_DIR"
           else
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               BASE="${{ github.event.pull_request.base.sha }}"
@@ -59,26 +66,37 @@ jobs:
 
             if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
               echo "No valid base commit to diff against - treating everything as changed"
-              CHANGED_FILES=""
-              FULL=1
+              MODULES="$ALL_MODULES"
+              PROJECTS="$ALL_PROJECTS"
             else
               CHANGED_FILES=$(git diff --name-only "$BASE" "${{ github.sha }}")
-              FULL=0
-            fi
+              MODULES=$(echo "$CHANGED_FILES" | grep '^modules/' | cut -d/ -f1-3 | sort -u)
+              PROJECTS=$(echo "$CHANGED_FILES" | grep '^projects/' | cut -d/ -f1-2 | sort -u)
 
-            if [ "$FULL" = "1" ]; then
-              MODULES=$(find modules -mindepth 2 -maxdepth 2 -type d | jq -R . | jq -sc .)
-              PROJECTS=$(find projects -mindepth 1 -maxdepth 1 -type d | jq -R . | jq -sc .)
-            else
-              MODULES=$(echo "$CHANGED_FILES" | grep '^modules/' | cut -d/ -f1-3 | sort -u | jq -R . | jq -sc . 2>/dev/null || echo "[]")
-              PROJECTS=$(echo "$CHANGED_FILES" | grep '^projects/' | cut -d/ -f1-2 | sort -u | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+              # A project must also be re-planned when a module it consumes
+              # changes, otherwise a module fix merges and never deploys.
+              # Match the path followed by `"` or `/` so e.g. function-app
+              # doesn't also match function-app-flex.
+              for p in $ALL_PROJECTS; do
+                for m in $MODULES; do
+                  if grep -rEqs --include='*.tf' "${m}(\"|/)" "$p"; then
+                    PROJECTS="$PROJECTS"$'\n'"$p"
+                    break
+                  fi
+                done
+              done
             fi
           fi
+
+          # Deleted directories still show up in the diff - keep only ones
+          # that exist so plan never targets a path that's gone.
+          MODULES=$(for d in $MODULES; do [ -d "$d" ] && echo "$d"; done | sort -u | to_json)
+          PROJECTS=$(for d in $PROJECTS; do [ -d "$d" ] && echo "$d"; done | sort -u | to_json)
 
           echo "modules=$MODULES" >> "$GITHUB_OUTPUT"
           echo "projects=$PROJECTS" >> "$GITHUB_OUTPUT"
           echo "Changed modules: $MODULES"
-          echo "Changed projects: $PROJECTS"
+          echo "Projects to plan: $PROJECTS"
 
   validate-and-scan:
     name: Terraform Validate & Security Scan
@@ -105,15 +123,20 @@ jobs:
       - name: Terraform Fmt (recursive, whole repo)
         run: terraform fmt -check -recursive .
 
-      - name: Terraform Init & Validate (changed modules only)
+      # Projects are validated here too, not just modules - otherwise a
+      # broken project passes the PR and only fails at post-merge plan.
+      - name: Terraform Init & Validate (changed modules and projects)
         run: |
-          MODULES='${{ needs.detect-changes.outputs.modules }}'
-          echo "Validating: $MODULES"
+          TARGETS=$(jq -nr \
+            --argjson m '${{ needs.detect-changes.outputs.modules }}' \
+            --argjson p '${{ needs.detect-changes.outputs.projects }}' \
+            '$m + $p | .[]')
+          echo "Validating: $(echo $TARGETS)"
           FAILED=0
-          for m in $(echo "$MODULES" | jq -r '.[]'); do
-            echo "--- $m ---"
-            if ! (cd "$m" && terraform init -backend=false -input=false && terraform validate); then
-              echo "[FAIL] $m"
+          for d in $TARGETS; do
+            echo "--- $d ---"
+            if ! (cd "$d" && terraform init -backend=false -input=false && terraform validate); then
+              echo "[FAIL] $d"
               FAILED=1
             fi
           done
@@ -156,7 +179,7 @@ jobs:
     # into dev/staging/master yet. validate-and-scan is skipped (not failed)
     # on a push event by design - proceed in that case, only block if it
     # actually ran (PR/manual) and failed. Also skip entirely if nothing
-    # under projects/ actually changed - an empty matrix errors otherwise.
+    # needs planning - an empty matrix errors otherwise.
     if: |
       always() &&
       (needs.validate-and-scan.result == 'success' || needs.validate-and-scan.result == 'skipped') &&
@@ -195,33 +218,107 @@ jobs:
           azure_subscription_id: ${{ steps.resolve.outputs.subscription_id }}
           backend_storage_account: ${{ steps.resolve.outputs.storage_account }}
 
+      # -detailed-exitcode: 0 = no changes, 1 = error, 2 = changes present.
       - name: Terraform Plan
+        id: plan
         working-directory: ${{ matrix.working_directory }}
-        run: terraform plan -var-file="${{ steps.resolve.outputs.environment }}.tfvars" -out=tfplan
+        run: |
+          set +e
+          terraform plan -input=false -detailed-exitcode \
+            -var-file="${{ steps.resolve.outputs.environment }}.tfvars" -out=tfplan
+          EXIT=$?
+          set -e
+          if [ "$EXIT" -eq 1 ]; then exit 1; fi
+          if [ "$EXIT" -eq 2 ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
+      # Puts the plan on the run page, so whoever approves the apply gate
+      # sees exactly what they're approving. Sensitive values are redacted
+      # by `terraform show`.
+      - name: Publish plan to run summary
+        working-directory: ${{ matrix.working_directory }}
+        run: |
+          {
+            echo "## ${{ matrix.working_directory }} → ${{ steps.resolve.outputs.environment }}"
+            if [ "${{ steps.plan.outputs.changed }}" = "true" ]; then
+              echo '```'
+              terraform show -no-color tfplan
+              echo '```'
+            else
+              echo "No changes - apply will be skipped for this project."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The binary plan file holds every value in plaintext, including
+      # sensitive ones, and this repo is public - keep it for the minimum
+      # time apply could need it.
       - name: Upload plan artifact
+        if: steps.plan.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
           path: ${{ matrix.working_directory }}/tfplan
+          retention-days: 1
+
+      # Matrix job outputs don't fan out per-entry to downstream jobs, so
+      # each entry records its result as a tiny artifact that plan-results
+      # aggregates.
+      - name: Record plan status
+        run: |
+          mkdir -p plan-status
+          echo "${{ matrix.working_directory }}|${{ steps.plan.outputs.changed }}" \
+            > "plan-status/${{ steps.resolve.outputs.artifact_suffix }}.status"
+
+      - name: Upload plan status
+        uses: actions/upload-artifact@v4
+        with:
+          name: planstatus-${{ steps.resolve.outputs.artifact_suffix }}
+          path: plan-status/
+          retention-days: 1
+
+  plan-results:
+    name: Collect Plan Results
+    needs: plan
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      changed_projects: ${{ steps.collect.outputs.changed_projects }}
+    steps:
+      - name: Download plan statuses
+        uses: actions/download-artifact@v4
+        with:
+          pattern: planstatus-*
+          path: plan-status
+          merge-multiple: true
+
+      - name: Collect projects with changes
+        id: collect
+        run: |
+          CHANGED=$(cat plan-status/*.status | awk -F'|' '$2 == "true" { print $1 }' | jq -R 'select(length > 0)' | jq -sc .)
+          echo "changed_projects=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Projects with changes to apply: $CHANGED"
 
   apply:
     name: Terraform Apply
-    needs: [detect-changes, plan]
-    # Same always()-override reasoning as plan - a bare custom if still gets
-    # an implicit skip-cascade pre-check applied before it's evaluated.
-    if: always() && needs.plan.result == 'success'
+    needs: plan-results
+    # always() overrides the implicit skip-cascade pre-check (validate-and-scan
+    # is skipped on push by design). Only projects whose plan actually has
+    # changes reach the approval gate - no-op plans don't ask for approval.
+    if: |
+      always() &&
+      needs.plan-results.result == 'success' &&
+      needs.plan-results.outputs.changed_projects != '[]'
     strategy:
       fail-fast: false
       matrix:
-        working_directory: ${{ fromJson(needs.detect-changes.outputs.projects) }}
+        working_directory: ${{ fromJson(needs.plan-results.outputs.changed_projects) }}
     runs-on: ubuntu-latest
     # Every environment (dev/staging/prod) pauses here for manual approval.
-    # Configure required reviewers under Settings > Environments for each
-    # of dev-terraform, staging-terraform, and prod-terraform.
     # This key is evaluated before any step runs, so it can't reference
-    # steps.resolve's output - inline the same branch->environment mapping
-    # as a job-level expression instead.
+    # steps.resolve's output - inline the branch->environment mapping.
     environment: ${{ (github.ref_name == 'master' && 'prod' || github.ref_name) }}-terraform
     timeout-minutes: 30
     concurrency:
@@ -255,6 +352,8 @@ jobs:
           azure_subscription_id: ${{ steps.resolve.outputs.subscription_id }}
           backend_storage_account: ${{ steps.resolve.outputs.storage_account }}
 
+      # Applies exactly the reviewed plan. If state moved since plan ran,
+      # Terraform rejects the stale plan rather than applying something else.
       - name: Terraform Apply
         working-directory: ${{ matrix.working_directory }}
-        run: terraform apply tfplan
+        run: terraform apply -input=false tfplan

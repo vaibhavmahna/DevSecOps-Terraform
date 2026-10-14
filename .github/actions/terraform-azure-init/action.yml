@@ -46,12 +46,15 @@ runs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: ${{ inputs.terraform_version }}
+        # The wrapper decorates stdout, which corrupts `terraform show`
+        # output redirected into the run summary.
+        terraform_wrapper: false
 
     - name: Terraform Init
       working-directory: ${{ inputs.working_directory }}
       shell: bash
       run: |
-        terraform init \
+        terraform init -input=false \
           -backend-config="key=terraform.tfstate" \
           -backend-config="resource_group_name=${{ inputs.backend_resource_group }}" \
           -backend-config="storage_account_name=${{ inputs.backend_storage_account }}" \
