@@ -14,8 +14,11 @@ locals {
   webapp_name  = "app-plxsbx-${var.environment}-01"
 }
 
+# Modules are pinned to a module-library tag (?ref=modules-vX.Y.Z). `source`
+# must be a literal string, so the URL can't come from a variable; bump every
+# ref together when upgrading the library.
 module "resource_group" {
-  source   = "../../modules/general/resource-group"
+  source   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/general/resource-group?ref=modules-v1.0.0"
   name     = "rg-${var.project_name}-${var.environment}"
   location = var.location
   tags     = var.tags
@@ -24,7 +27,7 @@ module "resource_group" {
 # --- Network -----------------------------------------------------------------
 
 module "vnet" {
-  source              = "../../modules/networking/virtual-network"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/virtual-network?ref=modules-v1.0.0"
   name                = "vnet-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -33,7 +36,7 @@ module "vnet" {
 }
 
 module "app_subnet" {
-  source               = "../../modules/networking/subnet"
+  source               = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/subnet?ref=modules-v1.0.0"
   name                 = "snet-app"
   resource_group_name  = module.resource_group.name
   virtual_network_name = module.vnet.name
@@ -42,7 +45,7 @@ module "app_subnet" {
 }
 
 module "app_nsg" {
-  source              = "../../modules/networking/nsg"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/nsg?ref=modules-v1.0.0"
   name                = "nsg-${var.project_name}-app-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -70,7 +73,7 @@ resource "azurerm_subnet_network_security_group_association" "app" {
 # --- Monitoring ----------------------------------------------------------------
 
 module "log_analytics" {
-  source              = "../../modules/monitoring/log-analytics"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/monitoring/log-analytics?ref=modules-v1.0.0"
   name                = "log-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -81,7 +84,7 @@ module "log_analytics" {
 # --- Storage -------------------------------------------------------------------
 
 module "storage" {
-  source                   = "../../modules/storage/storage-account"
+  source                   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/storage/storage-account?ref=modules-v1.0.0"
   name                     = local.storage_name
   resource_group_name      = module.resource_group.name
   location                 = module.resource_group.location
@@ -96,7 +99,7 @@ module "storage" {
 # F1 is the free App Service tier. The module defaults to P1v2, which is paid,
 # so the SKU is always set explicitly here.
 module "app_service_plan" {
-  source              = "../../modules/web/app-service-plan"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/app-service-plan?ref=modules-v1.0.0"
   name                = "asp-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -106,7 +109,7 @@ module "app_service_plan" {
 }
 
 module "web_app" {
-  source              = "../../modules/web/python-web-app"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/python-web-app?ref=modules-v1.0.0"
   name                = local.webapp_name
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
