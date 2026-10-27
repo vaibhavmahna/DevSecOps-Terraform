@@ -16,7 +16,7 @@ locals {
   # One image tag for every environment. Bumping it on dev and merging up
   # (dev -> staging -> master) promotes the exact image dev tested; nothing
   # is rebuilt per environment.
-  devtools_image_tag = "87501ef9309fbc014d3039071b878077bdf7dc71"
+  devtools_image_tag = "7d9edc6916f417963b99344fb53156bb8aa41581"
   devtools_image     = "ghcr.io/vaibhavmahna/plx-devtools:${local.devtools_image_tag}"
 }
 
