@@ -7,7 +7,7 @@ import hashlib
 import ipaddress
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # --- Password / token generator ----------------------------------------------
 
@@ -250,7 +250,9 @@ def explain_cron(expr, runs=5, now=None):
     # Next run times. Standard cron rule: if both day fields are restricted,
     # a day matches when either one matches; otherwise both must match.
     dom_any, dow_any = fields[2] == "*", fields[4] == "*"
-    now = (now or datetime.now()).replace(second=0, microsecond=0) + timedelta(minutes=1)
+    # Cron schedules on Azure and GitHub Actions run in UTC, so compute in UTC.
+    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    now = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
     upcoming = []
     day = now.replace(hour=0, minute=0)
     for _ in range(366 * 5):  # up to 5 years ahead covers Feb 29 schedules
