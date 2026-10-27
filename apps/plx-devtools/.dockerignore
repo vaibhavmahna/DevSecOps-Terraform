@@ -6,3 +6,6 @@ venv/
 .git
 Dockerfile
 .dockerignore
+tests/
+requirements-dev.txt
+.pytest_cache/

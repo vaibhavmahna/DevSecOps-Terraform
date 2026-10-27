@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plixa DevTools</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Plixa DevTools</h1>
+  <span id="env" class="badge"></span>
+</header>
+
+<nav>
+  <button data-tab="password" class="active">Password / Token</button>
+  <button data-tab="hash">Hash / Base64</button>
+  <button data-tab="cidr">CIDR</button>
+  <button data-tab="cron">Cron</button>
+</nav>
+
+<main>
+  <section id="password" class="tab active">
+    <h2>Password generator</h2>
+    <form data-api="/api/password" data-out="password">
+      <label>Length <input name="length" type="number" value="20" min="8" max="128"></label>
+      <label><input name="upper" type="checkbox" checked> A-Z</label>
+      <label><input name="lower" type="checkbox" checked> a-z</label>
+      <label><input name="digits" type="checkbox" checked> 0-9</label>
+      <label><input name="symbols" type="checkbox" checked> Symbols</label>
+      <button>Generate</button>
+    </form>
+    <pre class="out"></pre>
+
+    <h2>Random token</h2>
+    <form data-api="/api/token" data-out="token">
+      <label>Bytes <input name="bytes" type="number" value="32" min="8" max="128"></label>
+      <label>Format
+        <select name="format"><option>hex</option><option>urlsafe</option></select>
+      </label>
+      <button>Generate</button>
+    </form>
+    <pre class="out"></pre>
+  </section>
+
+  <section id="hash" class="tab">
+    <h2>Hash</h2>
+    <form data-api="/api/hash" data-out="hash">
+      <textarea name="text" rows="4" placeholder="Text to hash"></textarea>
+      <label>Algorithm
+        <select name="algorithm">
+          <option selected>sha256</option><option>sha512</option>
+          <option>sha1</option><option>md5</option>
+        </select>
+      </label>
+      <button>Hash</button>
+    </form>
+    <p class="hint">md5 and sha1 are fine for checksums, never for passwords or signatures.</p>
+    <pre class="out"></pre>
+
+    <h2>Base64</h2>
+    <form data-api="/api/base64" data-out="result">
+      <textarea name="text" rows="4" placeholder="Text or Base64"></textarea>
+      <label>Mode
+        <select name="mode"><option>encode</option><option>decode</option></select>
+      </label>
+      <label><input name="urlsafe" type="checkbox"> URL-safe</label>
+      <button>Run</button>
+    </form>
+    <pre class="out"></pre>
+  </section>
+
+  <section id="cidr" class="tab">
+    <h2>CIDR / subnet calculator</h2>
+    <form data-api="/api/cidr">
+      <label>CIDR <input name="cidr" value="10.10.0.0/16"></label>
+      <label>Split into /<input name="split_prefix" type="number" min="1" max="32" placeholder="24"></label>
+      <button>Calculate</button>
+    </form>
+    <p class="hint">Azure keeps 5 addresses in every subnet (.0, .1, .2, .3 and broadcast); smallest subnet is /29.</p>
+    <pre class="out"></pre>
+  </section>
+
+  <section id="cron" class="tab">
+    <h2>Cron expression explainer</h2>
+    <form data-api="/api/cron">
+      <label>Expression <input name="expression" value="*/15 9-17 * * mon-fri"></label>
+      <button>Explain</button>
+    </form>
+    <p class="hint">Five fields: minute hour day-of-month month day-of-week. Next runs are shown in the server's time zone (UTC on Azure).</p>
+    <pre class="out"></pre>
+  </section>
+</main>
+
+<footer><a href="/api/docs">API docs</a></footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

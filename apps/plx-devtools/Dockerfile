@@ -18,7 +18,8 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 COPY --from=build /install /usr/local
-COPY main.py .
+COPY main.py tools.py ./
+COPY static/ static/
 
 # Run as an unprivileged user, never root.
 RUN useradd --create-home --uid 10001 appuser
