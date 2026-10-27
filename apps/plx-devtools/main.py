@@ -1,16 +1,32 @@
+import hashlib
 import os
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+# Send request traces to Application Insights when Azure provides a
+# connection string. Must run before FastAPI is imported so it can be
+# auto-instrumented. Health probes are skipped to keep ingestion near zero.
+TELEMETRY = bool(os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"))
+if TELEMETRY:
+    os.environ.setdefault("OTEL_PYTHON_FASTAPI_EXCLUDED_URLS", "healthz")
+    from azure.monitor.opentelemetry import configure_azure_monitor
 
-import tools
+    configure_azure_monitor()
+
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
+import tools  # noqa: E402
 
 STATIC_DIR = Path(__file__).parent / "static"
 MAX_TEXT = 65536  # 64 KB cap on any text input
+
+# Injected by Container Apps from Key Vault (via the app's managed identity).
+# Only a short hash is ever exposed, never the value itself.
+_signing_key = os.getenv("SIGNING_KEY", "")
+KEY_FINGERPRINT = hashlib.sha256(_signing_key.encode()).hexdigest()[:8] if _signing_key else None
 
 app = FastAPI(title="plx-devtools", docs_url="/api/docs", redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -73,6 +89,8 @@ def info():
         "app": "plx-devtools",
         "environment": os.getenv("APP_ENV", "local"),
         "version": os.getenv("APP_VERSION", "dev"),
+        "key_vault": {"connected": KEY_FINGERPRINT is not None, "fingerprint": KEY_FINGERPRINT},
+        "telemetry": TELEMETRY,
     }
 
 
