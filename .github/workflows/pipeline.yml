@@ -20,7 +20,10 @@ on:
         required: false
 
 env:
-  TERRAFORM_VERSION: "1.9.8"
+  # 1.12 = the Terraform Associate 004 baseline. Needed for ephemeral values
+  # (1.10+) and write-only arguments (1.11+). State written by 1.12 can't be
+  # read by older CLIs, so never pin this back down.
+  TERRAFORM_VERSION: "1.12.2"
   DEFAULT_PROJECT_DIR: "projects/plx-sandbox-app"
   # Non-interactive mode: Terraform fails fast on missing input instead of
   # waiting for a prompt until the job times out.
