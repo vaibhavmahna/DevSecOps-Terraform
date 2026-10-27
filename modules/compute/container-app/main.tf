@@ -13,6 +13,34 @@ resource "azurerm_container_app" "this" {
       image  = var.image
       cpu    = var.cpu
       memory = var.memory
+
+      dynamic "env" {
+        for_each = var.env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      # Liveness restarts a stuck container; readiness keeps traffic away
+      # until the app answers. Both hit the same endpoint.
+      dynamic "liveness_probe" {
+        for_each = var.health_check != null ? [var.health_check] : []
+        content {
+          transport = "HTTP"
+          path      = liveness_probe.value.path
+          port      = liveness_probe.value.port
+        }
+      }
+
+      dynamic "readiness_probe" {
+        for_each = var.health_check != null ? [var.health_check] : []
+        content {
+          transport = "HTTP"
+          path      = readiness_probe.value.path
+          port      = readiness_probe.value.port
+        }
+      }
     }
   }
 
