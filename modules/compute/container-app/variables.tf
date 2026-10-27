@@ -48,6 +48,21 @@ variable "max_replicas" {
   default     = 1
 }
 
+variable "env" {
+  type        = map(string)
+  description = "Plain (non-secret) environment variables for the container. Never put secrets here; they end up in state and plan output."
+  default     = {}
+}
+
+variable "health_check" {
+  type = object({
+    path = string
+    port = number
+  })
+  description = "Optional HTTP endpoint used for liveness and readiness probes."
+  default     = null
+}
+
 variable "ingress" {
   type = object({
     external_enabled = bool

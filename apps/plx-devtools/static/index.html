@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plixa DevTools</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M11 10l-5 6 5 6M21 10l5 6-5 6M18 8l-4 16"/></svg>
+      <span><strong>Plixa DevTools</strong><small>Everyday utilities for cloud and DevOps work</small></span>
+    </a>
+    <div class="env" id="env" data-env="local" title="Environment and image version serving this page">
+      <i class="dot"></i><span id="env-name">local</span><code id="env-ver">dev</code>
+    </div>
+  </header>
+
+  <nav class="tools" aria-label="Tools">
+    <button class="tool active" data-tab="password" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <span><b>Passwords &amp; tokens</b><small>Secure random strings</small></span>
+    </button>
+    <button class="tool" data-tab="hash" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4L7 20M17 4l-2 16M4 9h16M3 15h16"/></svg>
+      <span><b>Hash &amp; Base64</b><small>Checksums and encoding</small></span>
+    </button>
+    <button class="tool" data-tab="cidr" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><rect x="13" y="14" width="8" height="6" rx="1.5"/></svg>
+      <span><b>CIDR calculator</b><small>Subnets and Azure ranges</small></span>
+    </button>
+    <button class="tool" data-tab="cron" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>
+      <span><b>Cron explainer</b><small>Schedules in plain English</small></span>
+    </button>
+  </nav>
+
+  <main>
+    <!-- Passwords & tokens -->
+    <section id="password" class="panel active">
+      <header class="panel-head">
+        <h1>Passwords &amp; tokens</h1>
+        <p>Generated on the server with Python's <code>secrets</code> module (the operating system's secure random source). Nothing is stored or logged.</p>
+      </header>
+
+      <div class="card">
+        <h2>Password</h2>
+        <form id="f-password" class="stack">
+          <div class="field">
+            <label for="pw-length">Length <output id="pw-length-out" for="pw-length">20</output></label>
+            <input type="range" id="pw-length" min="8" max="64" value="20">
+          </div>
+          <fieldset class="chips">
+            <legend>Characters</legend>
+            <label class="chip"><input type="checkbox" id="pw-upper" checked><span>A–Z</span></label>
+            <label class="chip"><input type="checkbox" id="pw-lower" checked><span>a–z</span></label>
+            <label class="chip"><input type="checkbox" id="pw-digits" checked><span>0–9</span></label>
+            <label class="chip"><input type="checkbox" id="pw-symbols" checked><span>!@#$</span></label>
+          </fieldset>
+          <button class="primary" type="submit">Generate password</button>
+        </form>
+        <div class="result big" id="r-password"><code class="value"></code><button class="copy" type="button">Copy</button></div>
+        <div class="meter" id="pw-meter"><div class="bar"><i></i></div><span class="meter-label"></span></div>
+      </div>
+
+      <div class="card">
+        <h2>Random token</h2>
+        <form id="f-token" class="row">
+          <div class="field">
+            <label for="tk-bytes">Size</label>
+            <select id="tk-bytes">
+              <option value="16">16 bytes · 128-bit</option>
+              <option value="32" selected>32 bytes · 256-bit</option>
+              <option value="64">64 bytes · 512-bit</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="label">Format</span>
+            <div class="segmented" role="radiogroup" aria-label="Token format">
+              <label><input type="radio" name="tk-format" value="hex" checked><span>hex</span></label>
+              <label><input type="radio" name="tk-format" value="urlsafe"><span>URL-safe</span></label>
+            </div>
+          </div>
+          <button class="primary" type="submit">Generate token</button>
+        </form>
+        <div class="result" id="r-token"><code class="value"></code><button class="copy" type="button">Copy</button></div>
+        <p class="hint">Use for API keys, webhook secrets and session signing keys.</p>
+      </div>
+    </section>
+
+    <!-- Hash & Base64 -->
+    <section id="hash" class="panel">
+      <header class="panel-head">
+        <h1>Hash &amp; Base64</h1>
+        <p>Results update as you type. Text is sent to this app only and is never stored.</p>
+      </header>
+
+      <div class="card">
+        <h2>Hash</h2>
+        <div class="field">
+          <label for="h-text">Text</label>
+          <textarea id="h-text" rows="3" spellcheck="false">hello plixa</textarea>
+        </div>
+        <dl class="hashes" id="r-hashes">
+          <div data-alg="sha256"><dt>SHA-256</dt><dd><code class="value"></code><button class="copy" type="button">Copy</button></dd></div>
+          <div data-alg="sha512"><dt>SHA-512</dt><dd><code class="value"></code><button class="copy" type="button">Copy</button></dd></div>
+          <div data-alg="sha1"><dt>SHA-1 <em class="warn">checksums only</em></dt><dd><code class="value"></code><button class="copy" type="button">Copy</button></dd></div>
+          <div data-alg="md5"><dt>MD5 <em class="warn">checksums only</em></dt><dd><code class="value"></code><button class="copy" type="button">Copy</button></dd></div>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2>Base64</h2>
+        <div class="row">
+          <div class="segmented" role="radiogroup" aria-label="Direction">
+            <label><input type="radio" name="b64-mode" value="encode" checked><span>Encode</span></label>
+            <label><input type="radio" name="b64-mode" value="decode"><span>Decode</span></label>
+          </div>
+          <label class="chip"><input type="checkbox" id="b64-urlsafe"><span>URL-safe</span></label>
+        </div>
+        <div class="split">
+          <div class="field">
+            <label for="b64-in">Input</label>
+            <textarea id="b64-in" rows="4" spellcheck="false">client_id:plixa-github-oidc</textarea>
+          </div>
+          <div class="field">
+            <span class="label">Output</span>
+            <div class="result tall" id="r-b64"><code class="value"></code><button class="copy" type="button">Copy</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CIDR -->
+    <section id="cidr" class="panel">
+      <header class="panel-head">
+        <h1>CIDR calculator</h1>
+        <p>Address ranges, usable hosts and subnet splits, with the 5 addresses Azure keeps in every subnet.</p>
+      </header>
+
+      <div class="card">
+        <form id="f-cidr" class="row">
+          <div class="field grow">
+            <label for="c-cidr">Network</label>
+            <input id="c-cidr" class="mono" value="10.10.0.0/16" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="c-split">Split into</label>
+            <select id="c-split"><option value="">no split</option></select>
+          </div>
+          <button class="primary" type="submit">Calculate</button>
+        </form>
+        <div class="error" id="e-cidr" hidden></div>
+
+        <div id="r-cidr" class="cidr">
+          <div class="bits" id="c-bits" aria-label="Network and host bits"></div>
+          <div class="kv" id="c-kv"></div>
+          <div class="azure" id="c-azure"></div>
+          <div id="c-subnets"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cron -->
+    <section id="cron" class="panel">
+      <header class="panel-head">
+        <h1>Cron explainer</h1>
+        <p>Five fields: minute, hour, day of month, month, day of week. Times are in UTC, the clock Azure and GitHub Actions use.</p>
+      </header>
+
+      <div class="card">
+        <form id="f-cron" class="row">
+          <div class="field grow">
+            <label for="cr-expr">Expression</label>
+            <input id="cr-expr" class="mono cron-input" value="*/15 9-17 * * mon-fri" spellcheck="false" autocomplete="off">
+          </div>
+          <button class="primary" type="submit">Explain</button>
+        </form>
+        <div class="presets" aria-label="Examples">
+          <button type="button" data-cron="0 2 * * *">nightly 02:00</button>
+          <button type="button" data-cron="*/5 * * * *">every 5 min</button>
+          <button type="button" data-cron="0 9 * * mon-fri">weekdays 09:00</button>
+          <button type="button" data-cron="0 0 1 * *">monthly</button>
+          <button type="button" data-cron="@weekly">@weekly</button>
+        </div>
+        <div class="error" id="e-cron" hidden></div>
+
+        <div id="r-cron">
+          <p class="sentence" id="cr-sentence"></p>
+          <div class="fields" id="cr-fields"></div>
+          <h3>Next runs</h3>
+          <ol class="runs" id="cr-runs"></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Plixa DevTools · FastAPI on Azure Container Apps</span>
+    <a href="/api/docs">API docs</a>
+    <a href="/healthz">Health</a>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

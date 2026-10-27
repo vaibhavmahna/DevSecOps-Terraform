@@ -1,0 +1,109 @@
+name: App Image - plx-devtools
+
+# PR  -> test, build, scan (nothing is published)
+# dev -> test, build, scan, then push the scanned image to GHCR
+# Staging and prod never rebuild: they deploy an image tag dev already pushed.
+on:
+  pull_request:
+    branches: [dev, staging, master]
+    paths:
+      - "apps/plx-devtools/**"
+      - ".github/workflows/app-image.yml"
+  push:
+    branches: [dev]
+    paths:
+      - "apps/plx-devtools/**"
+      - ".github/workflows/app-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: apps/plx-devtools
+  IMAGE: ghcr.io/vaibhavmahna/plx-devtools
+  TRIVY_VERSION: "0.58.1"
+
+concurrency:
+  group: app-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, Build & Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ${{ env.APP_DIR }}/requirements-dev.txt
+
+      - name: Unit tests
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
+      # Tagged with the commit SHA: immutable and traceable back to the code.
+      # No `latest` - a moving tag makes it impossible to know what's deployed.
+      - name: Build image
+        run: |
+          docker build \
+            --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t ${{ env.IMAGE }}:${{ github.sha }} \
+            ${{ env.APP_DIR }}
+          docker save -o image.tar ${{ env.IMAGE }}:${{ github.sha }}
+
+      # Scans the saved tarball, so the Trivy container never needs the
+      # Docker socket. Report-only (`|| true`), same as the Terraform scans.
+      - name: Trivy image scan (report only)
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:${{ env.TRIVY_VERSION }} \
+            image --input /work/image.tar \
+            --severity HIGH,CRITICAL --ignore-unfixed --no-progress \
+            | tee trivy.txt || true
+          {
+            echo "### Trivy scan: \`${{ env.IMAGE }}:${{ github.sha }}\`"
+            echo '```'
+            cat trivy.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload image for push job
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
+        uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  push:
+    name: Push to GHCR
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only this job can write packages; the build job (which runs on PRs)
+    # never gets that permission.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download scanned image
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+
+      - name: Push
+        run: |
+          docker load -i image.tar
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          echo "Pushed \`${{ env.IMAGE }}:${{ github.sha }}\` - use this tag in Terraform." >> "$GITHUB_STEP_SUMMARY"

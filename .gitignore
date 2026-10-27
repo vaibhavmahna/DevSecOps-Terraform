@@ -13,3 +13,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+# Python local virtualenvs and caches
+.venv/
+__pycache__/
+.pytest_cache/

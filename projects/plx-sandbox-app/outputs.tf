@@ -23,6 +23,16 @@ output "web_app_url" {
   description = "Public URL of the web app."
 }
 
+output "devtools_url" {
+  value       = "https://${module.devtools_app.fqdn}"
+  description = "Public URL of the plx-devtools container app."
+}
+
+output "devtools_image" {
+  value       = local.devtools_image
+  description = "Container image currently deployed."
+}
+
 output "storage_account_name" {
   value       = module.storage.name
   description = "Name of the storage account."
