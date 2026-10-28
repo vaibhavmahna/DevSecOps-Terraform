@@ -93,6 +93,18 @@ code, .mono { font-family: var(--mono); }
 .env code { font-size: 12px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
 
 /* Tool navigation */
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.kv-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 10px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+  font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.kv-chip svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.kv-chip code { font-size: 12px; font-weight: 400; }
+.kv-chip[data-state="on"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.kv-chip[data-state="on"] code { color: var(--muted); }
+
 .tools { grid-area: nav; display: flex; flex-direction: column; gap: 6px; align-self: start; position: sticky; top: 16px; }
 .tool {
   display: flex; align-items: center; gap: 12px; width: 100%;

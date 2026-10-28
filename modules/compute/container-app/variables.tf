@@ -63,6 +63,27 @@ variable "health_check" {
   default     = null
 }
 
+variable "identity_ids" {
+  type        = list(string)
+  description = "User-assigned managed identity IDs to attach to the app. Empty means no identity."
+  default     = []
+}
+
+variable "key_vault_secrets" {
+  type = map(object({
+    key_vault_secret_id = string
+    identity_id         = string
+  }))
+  description = "App secrets loaded from Key Vault, keyed by secret name (lowercase letters, digits, '-'). Use the versionless secret ID so new versions are picked up. identity_id must also be in identity_ids."
+  default     = {}
+}
+
+variable "secret_env" {
+  type        = map(string)
+  description = "Environment variables whose value comes from an app secret: { ENV_VAR_NAME = \"secret-name\" }."
+  default     = {}
+}
+
 variable "ingress" {
   type = object({
     external_enabled = bool
