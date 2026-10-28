@@ -61,6 +61,22 @@ jobs:
             ${{ env.APP_DIR }}
           docker save -o image.tar ${{ env.IMAGE }}:${{ github.sha }}
 
+      # Start the real image the way Azure will (telemetry on, secret injected)
+      # and fail the build if it doesn't come up. Values here are dummies.
+      - name: Smoke test container
+        run: |
+          trap 'docker logs smoke; docker rm -f smoke >/dev/null' EXIT
+          docker run -d --name smoke -p 8000:8000 \
+            -e APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://localhost.invalid/" \
+            -e SIGNING_KEY=smoke-test-only \
+            ${{ env.IMAGE }}:${{ github.sha }}
+          for i in $(seq 1 30); do curl -fs http://localhost:8000/healthz && break; sleep 1; done
+          curl -fs http://localhost:8000/healthz
+          curl -fs http://localhost:8000/api/info | tee info.json
+          grep -q '"connected":true' info.json
+          grep -q '"telemetry":true' info.json
+          ! grep -q smoke-test-only info.json
+
       # Scans the saved tarball, so the Trivy container never needs the
       # Docker socket. Report-only (`|| true`), same as the Terraform scans.
       - name: Trivy image scan (report only)

@@ -89,6 +89,11 @@ fetch("/api/info")
     $("#env").dataset.env = info.environment;
     $("#env-name").textContent = info.environment;
     $("#env-ver").textContent = info.version;
+    if (info.key_vault?.connected) {
+      $("#kv").dataset.state = "on";
+      $("#kv-state").textContent = info.key_vault.fingerprint;
+    }
+    if (info.telemetry) $("#telemetry").textContent = " · traced by Application Insights";
   })
   .catch(() => {});
 
