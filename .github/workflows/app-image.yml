@@ -1,7 +1,8 @@
 name: App Image - plx-devtools
 
 # PR  -> test, build, scan (nothing is published)
-# dev -> test, build, scan, then push the scanned image to GHCR
+# dev -> test, build, scan, then push the scanned image to GHCR, sign it and
+#        attach an SBOM and SLSA build provenance
 # Staging and prod never rebuild: they deploy an image tag dev already pushed.
 on:
   pull_request:
@@ -107,19 +108,73 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Only this job can write packages; the build job (which runs on PRs)
-    # never gets that permission.
+    # never gets that permission. id-token lets Sigstore issue a short-lived
+    # signing certificate from this workflow's OIDC identity: no keys to store.
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download scanned image
         uses: actions/download-artifact@v4
         with:
           name: image
 
+      # Everything below targets the digest, not the tag: a tag can be moved
+      # to other content, a digest can't.
       - name: Push
+        id: push
         run: |
           docker load -i image.tar
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push ${{ env.IMAGE }}:${{ github.sha }}
-          echo "Pushed \`${{ env.IMAGE }}:${{ github.sha }}\` - use this tag in Terraform." >> "$GITHUB_STEP_SUMMARY"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' ${{ env.IMAGE }}:${{ github.sha }} | cut -d@ -f2)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless: the signature is tied to this repo + workflow + commit and
+      # recorded in the public Rekor transparency log.
+      - name: Sign image
+        run: cosign sign --yes ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      # SLSA build provenance: which commit and workflow produced this digest.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        run: |
+          {
+            echo "Pushed \`${{ env.IMAGE }}:${{ github.sha }}\` - use this tag in Terraform."
+            echo
+            echo "Digest: \`${{ steps.push.outputs.digest }}\` (signed, SBOM + provenance attested)"
+            echo
+            echo '```'
+            echo "cosign verify ${{ env.IMAGE }}@${{ steps.push.outputs.digest }} \\"
+            echo "  --certificate-identity-regexp '^https://github.com/${{ github.repository }}/' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo "gh attestation verify oci://${{ env.IMAGE }}@${{ steps.push.outputs.digest }} --owner ${{ github.repository_owner }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
