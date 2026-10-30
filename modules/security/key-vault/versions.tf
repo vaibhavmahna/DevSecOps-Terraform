@@ -3,8 +3,9 @@ terraform {
 
   required_providers {
     azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+      source = "hashicorp/azurerm"
+      # rbac_authorization_enabled replaced enable_rbac_authorization in 4.42.
+      version = ">= 4.42.0, < 5.0.0"
     }
   }
 }

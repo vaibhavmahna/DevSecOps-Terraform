@@ -19,4 +19,5 @@ resource "azurerm_resource_group_policy_assignment" "this" {
   policy_definition_id = local.effective_policy_definition_id
   display_name         = var.assignment_display_name
   parameters           = var.assignment_parameters
+  enforce              = var.enforce
 }

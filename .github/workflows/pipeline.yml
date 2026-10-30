@@ -25,6 +25,7 @@ env:
   # read by older CLIs, so never pin this back down.
   TERRAFORM_VERSION: "1.12.2"
   DEFAULT_PROJECT_DIR: "projects/plx-sandbox-app"
+  CONFTEST_VERSION: "v0.71.1"
   # Non-interactive mode: Terraform fails fast on missing input instead of
   # waiting for a prompt until the job times out.
   TF_IN_AUTOMATION: "true"
@@ -44,7 +45,7 @@ jobs:
       projects: ${{ steps.detect.outputs.projects }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -90,6 +91,12 @@ jobs:
                   fi
                 done
               done
+
+              # A policy change must be checked against every project's plan,
+              # otherwise new rules only run on the next unrelated change.
+              if echo "$CHANGED_FILES" | grep -q '^policies/'; then
+                PROJECTS="$ALL_PROJECTS"
+              fi
             fi
           fi
 
@@ -118,10 +125,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
@@ -153,6 +160,14 @@ jobs:
         uses: ./.github/actions/verify-images
         with:
           paths: ${{ join(fromJson(needs.detect-changes.outputs.projects), ' ') }}
+
+      # The policies' own unit tests. Blocking: a broken policy would
+      # silently stop checking plans.
+      - name: Policy unit tests (OPA/Conftest)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            openpolicyagent/conftest:${{ env.CONFTEST_VERSION }} \
+            verify --policy policies/terraform --no-color
 
       # Gitleaks: fast, pure pattern-matching secret scan, no network calls.
       # (TruffleHog was dropped - same job, but its live-credential
@@ -210,7 +225,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve environment
         id: resolve
@@ -254,6 +269,31 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Checks the planned end state (every resource, not just the diff)
+      # against policies/terraform before anyone is asked to approve.
+      # warn rules report only; deny rules fail this step and block apply.
+      # tfplan.json holds sensitive values in plaintext, so it never leaves
+      # the runner and is deleted as soon as the check finishes.
+      - name: Policy check (OPA/Conftest)
+        working-directory: ${{ matrix.working_directory }}
+        run: |
+          trap 'rm -f tfplan.json' EXIT
+          terraform show -json tfplan > tfplan.json
+          set +e
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" -w "/repo/${{ matrix.working_directory }}" \
+            openpolicyagent/conftest:${{ env.CONFTEST_VERSION }} \
+            test tfplan.json --policy /repo/policies/terraform --no-color > policy.txt 2>&1
+          EXIT=$?
+          set -e
+          cat policy.txt
+          {
+            echo "### Policy check: ${{ matrix.working_directory }} → ${{ steps.resolve.outputs.environment }}"
+            echo '```'
+            sed 's#^\(WARN\|FAIL\) - tfplan.json - main - #\1 #' policy.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $EXIT
+
       # Puts the plan on the run page, so whoever approves the apply gate
       # sees exactly what they're approving. Sensitive values are redacted
       # by `terraform show`.
@@ -276,7 +316,7 @@ jobs:
       # time apply could need it.
       - name: Upload plan artifact
         if: steps.plan.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
           path: ${{ matrix.working_directory }}/tfplan
@@ -292,7 +332,7 @@ jobs:
             > "plan-status/${{ steps.resolve.outputs.artifact_suffix }}.status"
 
       - name: Upload plan status
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: planstatus-${{ steps.resolve.outputs.artifact_suffix }}
           path: plan-status/
@@ -307,7 +347,7 @@ jobs:
       changed_projects: ${{ steps.collect.outputs.changed_projects }}
     steps:
       - name: Download plan statuses
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: planstatus-*
           path: plan-status
@@ -345,7 +385,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve environment
         id: resolve
@@ -355,7 +395,7 @@ jobs:
           working_directory: ${{ matrix.working_directory }}
 
       - name: Download plan artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
           path: ${{ matrix.working_directory }}

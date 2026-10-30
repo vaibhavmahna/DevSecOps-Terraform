@@ -26,7 +26,7 @@ locals {
 # must be a literal string, so the URL can't come from a variable; bump every
 # ref together when upgrading the library.
 module "resource_group" {
-  source   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/general/resource-group?ref=modules-v1.2.0"
+  source   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/general/resource-group?ref=modules-v1.3.0"
   name     = "rg-${var.project_name}-${var.environment}"
   location = var.location
   tags     = var.tags
@@ -35,7 +35,7 @@ module "resource_group" {
 # --- Network -----------------------------------------------------------------
 
 module "vnet" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/virtual-network?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/virtual-network?ref=modules-v1.3.0"
   name                = "vnet-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -44,7 +44,7 @@ module "vnet" {
 }
 
 module "app_subnet" {
-  source               = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/subnet?ref=modules-v1.2.0"
+  source               = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/subnet?ref=modules-v1.3.0"
   name                 = "snet-app"
   resource_group_name  = module.resource_group.name
   virtual_network_name = module.vnet.name
@@ -53,7 +53,7 @@ module "app_subnet" {
 }
 
 module "app_nsg" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/nsg?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/networking/nsg?ref=modules-v1.3.0"
   name                = "nsg-${var.project_name}-app-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -81,7 +81,7 @@ resource "azurerm_subnet_network_security_group_association" "app" {
 # --- Monitoring ----------------------------------------------------------------
 
 module "log_analytics" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/monitoring/log-analytics?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/monitoring/log-analytics?ref=modules-v1.3.0"
   name                = "log-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -92,7 +92,7 @@ module "log_analytics" {
 # Workspace-based, so telemetry lands in the same workspace and shares its
 # 5 GB/month free ingestion.
 module "app_insights" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/monitoring/application-insights?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/monitoring/application-insights?ref=modules-v1.3.0"
   name                = "appi-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -106,7 +106,7 @@ module "app_insights" {
 data "azurerm_client_config" "current" {}
 
 module "devtools_identity" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/managed-identity?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/managed-identity?ref=modules-v1.3.0"
   name                = "id-devtools-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -116,7 +116,7 @@ module "devtools_identity" {
 # RBAC mode (no access policies). Purge protection is always on in the module,
 # so a deleted vault keeps its name reserved for the 7-day retention.
 module "key_vault" {
-  source                     = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault?ref=modules-v1.2.0"
+  source                     = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault?ref=modules-v1.3.0"
   name                       = local.key_vault_name
   resource_group_name        = module.resource_group.name
   location                   = module.resource_group.location
@@ -128,14 +128,14 @@ module "key_vault" {
 
 # The pipeline writes secrets; the app can only read them.
 module "kv_pipeline_officer" {
-  source       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-rbac?ref=modules-v1.2.0"
+  source       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-rbac?ref=modules-v1.3.0"
   key_vault_id = module.key_vault.id
   principal_id = data.azurerm_client_config.current.object_id
   role_name    = "Key Vault Secrets Officer"
 }
 
 module "kv_devtools_reader" {
-  source       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-rbac?ref=modules-v1.2.0"
+  source       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-rbac?ref=modules-v1.3.0"
   key_vault_id = module.key_vault.id
   principal_id = module.devtools_identity.principal_id
   role_name    = "Key Vault Secrets User"
@@ -157,7 +157,7 @@ ephemeral "random_password" "signing_key" {
 # Bump value_wo_version to rotate: a new value is written, and the app picks
 # it up on its next revision (it references the versionless ID).
 module "signing_key" {
-  source           = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-secret?ref=modules-v1.2.0"
+  source           = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-secret?ref=modules-v1.3.0"
   name             = "devtools-signing-key"
   key_vault_id     = module.key_vault.id
   value_wo         = ephemeral.random_password.signing_key.result
@@ -170,7 +170,7 @@ module "signing_key" {
 # Passed through Key Vault rather than as a plain env var: the module's env
 # map would print it in plan logs, and this repo's Actions logs are public.
 module "appinsights_connection" {
-  source           = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-secret?ref=modules-v1.2.0"
+  source           = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/security/key-vault-secret?ref=modules-v1.3.0"
   name             = "appinsights-connection-string"
   key_vault_id     = module.key_vault.id
   value_wo         = module.app_insights.connection_string
@@ -183,7 +183,7 @@ module "appinsights_connection" {
 # --- Storage -------------------------------------------------------------------
 
 module "storage" {
-  source                   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/storage/storage-account?ref=modules-v1.2.0"
+  source                   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/storage/storage-account?ref=modules-v1.3.0"
   name                     = local.storage_name
   resource_group_name      = module.resource_group.name
   location                 = module.resource_group.location
@@ -198,7 +198,7 @@ module "storage" {
 # F1 is the free App Service tier. The module defaults to P1v2, which is paid,
 # so the SKU is always set explicitly here.
 module "app_service_plan" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/app-service-plan?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/app-service-plan?ref=modules-v1.3.0"
   name                = "asp-${var.project_name}-${var.environment}"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -208,7 +208,7 @@ module "app_service_plan" {
 }
 
 module "web_app" {
-  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/python-web-app?ref=modules-v1.2.0"
+  source              = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/web/python-web-app?ref=modules-v1.3.0"
   name                = local.webapp_name
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
@@ -225,7 +225,7 @@ module "web_app" {
 # Consumption-only environment: no standing cost. Logs go to the existing
 # workspace, which stays well inside the 5 GB/month free ingestion.
 module "container_app_environment" {
-  source                     = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/compute/container-app-environment?ref=modules-v1.2.0"
+  source                     = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/compute/container-app-environment?ref=modules-v1.3.0"
   name                       = "cae-${var.project_name}-${var.environment}"
   resource_group_name        = module.resource_group.name
   location                   = module.resource_group.location
@@ -236,7 +236,7 @@ module "container_app_environment" {
 # Kept inside the Container Apps monthly free grant: smallest size, and
 # min_replicas = 0 so it scales to zero (and costs nothing) when idle.
 module "devtools_app" {
-  source                       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/compute/container-app?ref=modules-v1.2.0"
+  source                       = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/compute/container-app?ref=modules-v1.3.0"
   name                         = "ca-devtools-${var.environment}"
   resource_group_name          = module.resource_group.name
   container_app_environment_id = module.container_app_environment.id
@@ -279,7 +279,71 @@ module "devtools_app" {
 # --- Cost guardrail --------------------------------------------------------------
 
 module "budget" {
-  source = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/governance/subscription-budget?ref=modules-v1.2.0"
+  source = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/governance/subscription-budget?ref=modules-v1.3.0"
   name   = "budget-${var.project_name}-${var.environment}"
   amount = 1
+}
+
+# --- Azure Policy (audit) --------------------------------------------------------
+
+# Built-in policies assigned to the resource group in DoNotEnforce mode: Azure
+# reports compliance (including portal changes Terraform never sees) but never
+# blocks a deployment. Conftest checks the plan before deploy; this checks what
+# is actually running. Definitions are looked up by ID so a wrong ID fails plan.
+locals {
+  audit_policies = {
+    "allowed-locations" = {
+      definition = "e56962a6-4747-49cd-b67b-bf8b01975c4c" # Allowed locations
+      parameters = jsonencode({ listOfAllowedLocations = { value = [var.location] } })
+    }
+    "tag-environment" = {
+      definition = "871b6d14-10aa-478d-b590-94f262ecfa99" # Require a tag on resources
+      parameters = jsonencode({ tagName = { value = "environment" } })
+    }
+    "tag-project" = {
+      definition = "871b6d14-10aa-478d-b590-94f262ecfa99"
+      parameters = jsonencode({ tagName = { value = "project" } })
+    }
+    "tag-managed-by" = {
+      definition = "871b6d14-10aa-478d-b590-94f262ecfa99"
+      parameters = jsonencode({ tagName = { value = "managed_by" } })
+    }
+    "kv-purge-protection" = {
+      definition = "0b60c0b2-2dc2-4e1c-b5c9-abbed971de53" # Key vaults should have deletion protection enabled
+      parameters = null
+    }
+    "kv-rbac" = {
+      definition = "12d4fa5e-1f9f-4c21-97a9-b99b3c6611b5" # Azure Key Vault should use RBAC permission model
+      parameters = null
+    }
+    "storage-no-public" = {
+      definition = "4fa4b6c0-31ca-4c0d-b10d-24b96f62a751" # Storage account public access should be disallowed
+      parameters = null
+    }
+    "storage-https" = {
+      definition = "404c3081-a854-4457-ae30-26a93ef643f9" # Secure transfer to storage accounts should be enabled
+      parameters = null
+    }
+    "webapp-https" = {
+      definition = "a4af4a39-4135-47fb-b175-47fbdf85311d" # App Service apps should only be accessible over HTTPS
+      parameters = null
+    }
+  }
+}
+
+data "azurerm_policy_definition" "audit" {
+  for_each = local.audit_policies
+  name     = each.value.definition
+}
+
+module "audit_policy" {
+  source   = "git::https://github.com/vaibhavmahna/DevSecOps-Terraform.git//modules/governance/policy?ref=modules-v1.3.0"
+  for_each = local.audit_policies
+
+  resource_group_id       = module.resource_group.id
+  policy_definition_id    = data.azurerm_policy_definition.audit[each.key].id
+  assignment_name         = "audit-${each.key}"
+  assignment_display_name = "[audit] ${data.azurerm_policy_definition.audit[each.key].display_name} (${each.key})"
+  assignment_parameters   = each.value.parameters
+  enforce                 = false
 }
