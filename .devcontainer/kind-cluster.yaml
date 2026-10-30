@@ -1,0 +1,8 @@
+# Local cluster for Project 2:
+#   kind create cluster --config .devcontainer/kind-cluster.yaml
+# One node is enough for Argo CD + Kyverno + the app on a 2-core Codespace.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: plx
+nodes:
+  - role: control-plane
