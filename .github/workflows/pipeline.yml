@@ -45,7 +45,7 @@ jobs:
       projects: ${{ steps.detect.outputs.projects }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -125,10 +125,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
@@ -225,7 +225,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve environment
         id: resolve
@@ -316,7 +316,7 @@ jobs:
       # time apply could need it.
       - name: Upload plan artifact
         if: steps.plan.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
           path: ${{ matrix.working_directory }}/tfplan
@@ -332,7 +332,7 @@ jobs:
             > "plan-status/${{ steps.resolve.outputs.artifact_suffix }}.status"
 
       - name: Upload plan status
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: planstatus-${{ steps.resolve.outputs.artifact_suffix }}
           path: plan-status/
@@ -347,7 +347,7 @@ jobs:
       changed_projects: ${{ steps.collect.outputs.changed_projects }}
     steps:
       - name: Download plan statuses
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: planstatus-*
           path: plan-status
@@ -385,7 +385,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve environment
         id: resolve
@@ -395,7 +395,7 @@ jobs:
           working_directory: ${{ matrix.working_directory }}
 
       - name: Download plan artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: tfplan-${{ steps.resolve.outputs.environment }}-${{ steps.resolve.outputs.artifact_suffix }}
           path: ${{ matrix.working_directory }}
