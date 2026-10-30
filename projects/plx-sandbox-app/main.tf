@@ -16,9 +16,10 @@ locals {
 
   # One image tag for every environment. Bumping it on dev and merging up
   # (dev -> staging -> master) promotes the exact image dev tested; nothing
-  # is rebuilt per environment.
-  devtools_image_tag = "2315313e7baece3dbc897a19274f8daf907f2fa2"
-  devtools_image     = "ghcr.io/vaibhavmahna/plx-devtools:${local.devtools_image_tag}"
+  # is rebuilt per environment. Written as one literal so the pipeline's
+  # verify gate can find it and check its signature before deploying.
+  devtools_image     = "ghcr.io/vaibhavmahna/plx-devtools:2b09d89ad5f5c070979ef543f3284afab8055332"
+  devtools_image_tag = split(":", local.devtools_image)[1]
 }
 
 # Modules are pinned to a module-library tag (?ref=modules-vX.Y.Z). `source`
