@@ -91,6 +91,12 @@ jobs:
                   fi
                 done
               done
+
+              # A policy change must be checked against every project's plan,
+              # otherwise new rules only run on the next unrelated change.
+              if echo "$CHANGED_FILES" | grep -q '^policies/'; then
+                PROJECTS="$ALL_PROJECTS"
+              fi
             fi
           fi
 

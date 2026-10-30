@@ -61,3 +61,9 @@ variable "assignment_parameters" {
   description = "JSON-encoded parameter values for the policy assignment."
   default     = null
 }
+
+variable "enforce" {
+  type        = bool
+  description = "false = DoNotEnforce: compliance is still reported, but nothing is denied or modified."
+  default     = true
+}

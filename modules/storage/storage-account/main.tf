@@ -8,6 +8,8 @@ resource "azurerm_storage_account" "this" {
 
   min_tls_version            = "TLS1_2"
   https_traffic_only_enabled = true
+  # The provider default is true, which lets any container be made public.
+  allow_nested_items_to_be_public = false
 
   tags = var.tags
 }
