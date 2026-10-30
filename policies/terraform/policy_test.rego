@@ -166,6 +166,10 @@ test_deleted_resources_ignored if {
 	count(warn) == 0 with input as with_change(deleted)
 }
 
+test_null_location_ignored if {
+	count(warn) == 0 with input as with_change(rc("azurerm_resource_group_policy_assignment", {"name": "audit-kv-rbac", "location": null}))
+}
+
 test_data_sources_ignored if {
 	ds := {
 		"address": "data.azurerm_client_config.current", "mode": "data", "type": "azurerm_client_config",

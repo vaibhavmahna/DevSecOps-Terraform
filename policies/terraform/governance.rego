@@ -19,10 +19,12 @@ has_tag(tags, t) if {
 	tags[t] != ""
 }
 
-# Azure accepts both "canadacentral" and "Canada Central".
+# Azure accepts both "canadacentral" and "Canada Central". Optional location
+# attributes (e.g. policy assignments) are null in the plan and are skipped.
 warn contains msg if {
 	some r in resources
 	loc := r.after.location
+	is_string(loc)
 	not normalize(loc) in allowed_locations
 	msg := sprintf("[governance] %s: location %q is outside the allowed regions %v", [r.address, loc, sort(allowed_locations)])
 }
