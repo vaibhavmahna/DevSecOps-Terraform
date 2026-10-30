@@ -112,3 +112,21 @@ def test_api_errors_are_400_not_500():
 
 def test_api_validates_limits():
     assert client.post("/api/password", json={"length": 500}).status_code == 422
+
+
+def test_info_without_key_vault():
+    body = client.get("/api/info").json()
+    assert body["key_vault"] == {"connected": False, "fingerprint": None}
+
+
+def test_info_shows_fingerprint_never_the_secret(monkeypatch):
+    import hashlib
+
+    import main
+
+    secret = "super-secret-value"
+    monkeypatch.setattr(main, "KEY_FINGERPRINT", hashlib.sha256(secret.encode()).hexdigest()[:8])
+    response = client.get("/api/info")
+    assert response.json()["key_vault"]["connected"] is True
+    assert len(response.json()["key_vault"]["fingerprint"]) == 8
+    assert secret not in response.text

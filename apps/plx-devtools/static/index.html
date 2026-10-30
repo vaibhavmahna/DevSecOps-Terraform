@@ -14,8 +14,14 @@
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M11 10l-5 6 5 6M21 10l5 6-5 6M18 8l-4 16"/></svg>
       <span><strong>Plixa DevTools</strong><small>Everyday utilities for cloud and DevOps work</small></span>
     </a>
-    <div class="env" id="env" data-env="local" title="Environment and image version serving this page">
-      <i class="dot"></i><span id="env-name">local</span><code id="env-ver">dev</code>
+    <div class="status">
+      <div class="kv-chip" id="kv" data-state="off" title="Secret loaded from Azure Key Vault through the app's managed identity. Only a short hash is shown.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span>Key Vault</span><code id="kv-state">not configured</code>
+      </div>
+      <div class="env" id="env" data-env="local" title="Environment and image version serving this page">
+        <i class="dot"></i><span id="env-name">local</span><code id="env-ver">dev</code>
+      </div>
     </div>
   </header>
 
@@ -199,7 +205,7 @@
   </main>
 
   <footer class="foot">
-    <span>Plixa DevTools · FastAPI on Azure Container Apps</span>
+    <span>Plixa DevTools · FastAPI on Azure Container Apps<span id="telemetry"></span></span>
     <a href="/api/docs">API docs</a>
     <a href="/healthz">Health</a>
   </footer>

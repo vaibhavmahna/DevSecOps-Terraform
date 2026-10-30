@@ -42,3 +42,13 @@ output "log_analytics_workspace_id" {
   value       = module.log_analytics.workspace_id
   description = "Workspace (customer) ID of the Log Analytics workspace."
 }
+
+output "key_vault_uri" {
+  value       = module.key_vault.vault_uri
+  description = "URI of the project's Key Vault."
+}
+
+output "devtools_identity_client_id" {
+  value       = module.devtools_identity.client_id
+  description = "Client ID of the plx-devtools managed identity."
+}

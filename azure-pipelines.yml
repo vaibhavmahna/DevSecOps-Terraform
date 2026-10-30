@@ -14,7 +14,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  terraformVersion: "1.9.8"
+  terraformVersion: "1.12.2"
 
 ###############################################################
 #                         CI STAGE

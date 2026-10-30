@@ -1,0 +1,61 @@
+name: "Verify Container Images"
+description: "Fails unless every image this repo's projects deploy was signed and attested by the app-image workflow on dev - the deploy-side half of the supply chain"
+
+inputs:
+  paths:
+    description: "Space-separated project directories to scan for image references"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Verify images
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PREFIX: ghcr.io/${{ github.repository_owner }}/
+        PATHS: ${{ inputs.paths }}
+      run: |
+        # Images are deployed by full commit SHA, so a reference in *.tf is
+        # exactly what will run. Anything else from our registry is rejected.
+        # .terraform/ is skipped: after init it holds module downloads, which
+        # are whole copies of this repo at an older tag (old image refs too).
+        [ -z "$PATHS" ] && { echo "No projects to check"; exit 0; }
+        REFS=$(grep -rhoE --include='*.tf' --exclude-dir=.terraform \
+          "${PREFIX//./\\.}[a-z0-9._/-]+:[^\"\$ ]*" $PATHS | sort -u || true)
+        [ -z "$REFS" ] && { echo "No ${PREFIX}* images referenced"; exit 0; }
+
+        # Only the app-image workflow on dev pushes images, so that is the
+        # only identity whose signatures are trusted.
+        WORKFLOW="$REPO/.github/workflows/app-image.yml"
+        IDENTITY="https://github.com/$WORKFLOW@refs/heads/dev"
+
+        FAILED=0
+        echo "### Image verification" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Image | Signature | Provenance |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+        for img in $REFS; do
+          echo "--- $img"
+          if ! [[ "$img" =~ :[0-9a-f]{40}$ ]]; then
+            echo "[FAIL] $img: tag must be a full 40-char commit SHA"
+            echo "| \`$img\` | ❌ not a commit SHA tag | - |" >> "$GITHUB_STEP_SUMMARY"
+            FAILED=1; continue
+          fi
+          SIG=✅; PROV=✅
+          cosign verify "$img" \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            > /dev/null || { SIG=❌; FAILED=1; }
+          gh attestation verify "oci://$img" --repo "$REPO" --signer-workflow "$WORKFLOW" \
+            || { PROV=❌; FAILED=1; }
+          echo "| \`$img\` | $SIG | $PROV |" >> "$GITHUB_STEP_SUMMARY"
+        done
+
+        if [ "$FAILED" -ne 0 ]; then
+          echo "::error::Unsigned or unattested image - only images built and signed by app-image.yml on dev can be deployed"
+          exit 1
+        fi

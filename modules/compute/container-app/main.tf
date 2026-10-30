@@ -4,6 +4,25 @@ resource "azurerm_container_app" "this" {
   resource_group_name          = var.resource_group_name
   revision_mode                = var.revision_mode
 
+  dynamic "identity" {
+    for_each = length(var.identity_ids) > 0 ? [1] : []
+    content {
+      type         = "UserAssigned"
+      identity_ids = var.identity_ids
+    }
+  }
+
+  # Key Vault references: the app pulls the value itself using its managed
+  # identity, so the secret never passes through Terraform or the pipeline.
+  dynamic "secret" {
+    for_each = var.key_vault_secrets
+    content {
+      name                = secret.key
+      key_vault_secret_id = secret.value.key_vault_secret_id
+      identity            = secret.value.identity_id
+    }
+  }
+
   template {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
@@ -19,6 +38,14 @@ resource "azurerm_container_app" "this" {
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_env
+        content {
+          name        = env.key
+          secret_name = env.value
         }
       }
 

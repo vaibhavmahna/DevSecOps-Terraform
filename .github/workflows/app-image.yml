@@ -1,7 +1,8 @@
 name: App Image - plx-devtools
 
 # PR  -> test, build, scan (nothing is published)
-# dev -> test, build, scan, then push the scanned image to GHCR
+# dev -> test, build, scan, then push the scanned image to GHCR, sign it and
+#        attach an SBOM and SLSA build provenance
 # Staging and prod never rebuild: they deploy an image tag dev already pushed.
 on:
   pull_request:
@@ -61,6 +62,22 @@ jobs:
             ${{ env.APP_DIR }}
           docker save -o image.tar ${{ env.IMAGE }}:${{ github.sha }}
 
+      # Start the real image the way Azure will (telemetry on, secret injected)
+      # and fail the build if it doesn't come up. Values here are dummies.
+      - name: Smoke test container
+        run: |
+          trap 'docker logs smoke; docker rm -f smoke >/dev/null' EXIT
+          docker run -d --name smoke -p 8000:8000 \
+            -e APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://localhost.invalid/" \
+            -e SIGNING_KEY=smoke-test-only \
+            ${{ env.IMAGE }}:${{ github.sha }}
+          for i in $(seq 1 30); do curl -fs http://localhost:8000/healthz && break; sleep 1; done
+          curl -fs http://localhost:8000/healthz
+          curl -fs http://localhost:8000/api/info | tee info.json
+          grep -q '"connected":true' info.json
+          grep -q '"telemetry":true' info.json
+          ! grep -q smoke-test-only info.json
+
       # Scans the saved tarball, so the Trivy container never needs the
       # Docker socket. Report-only (`|| true`), same as the Terraform scans.
       - name: Trivy image scan (report only)
@@ -91,19 +108,73 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Only this job can write packages; the build job (which runs on PRs)
-    # never gets that permission.
+    # never gets that permission. id-token lets Sigstore issue a short-lived
+    # signing certificate from this workflow's OIDC identity: no keys to store.
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download scanned image
         uses: actions/download-artifact@v4
         with:
           name: image
 
+      # Everything below targets the digest, not the tag: a tag can be moved
+      # to other content, a digest can't.
       - name: Push
+        id: push
         run: |
           docker load -i image.tar
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push ${{ env.IMAGE }}:${{ github.sha }}
-          echo "Pushed \`${{ env.IMAGE }}:${{ github.sha }}\` - use this tag in Terraform." >> "$GITHUB_STEP_SUMMARY"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' ${{ env.IMAGE }}:${{ github.sha }} | cut -d@ -f2)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless: the signature is tied to this repo + workflow + commit and
+      # recorded in the public Rekor transparency log.
+      - name: Sign image
+        run: cosign sign --yes ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      # SLSA build provenance: which commit and workflow produced this digest.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        run: |
+          {
+            echo "Pushed \`${{ env.IMAGE }}:${{ github.sha }}\` - use this tag in Terraform."
+            echo
+            echo "Digest: \`${{ steps.push.outputs.digest }}\` (signed, SBOM + provenance attested)"
+            echo
+            echo '```'
+            echo "cosign verify ${{ env.IMAGE }}@${{ steps.push.outputs.digest }} \\"
+            echo "  --certificate-identity-regexp '^https://github.com/${{ github.repository }}/' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo "gh attestation verify oci://${{ env.IMAGE }}@${{ steps.push.outputs.digest }} --owner ${{ github.repository_owner }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
