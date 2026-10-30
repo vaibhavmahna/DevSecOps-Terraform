@@ -32,6 +32,8 @@ env:
 permissions:
   id-token: write
   contents: read
+  # Read-only: lets the image verify gate fetch build attestations.
+  attestations: read
 
 jobs:
   detect-changes:
@@ -145,6 +147,13 @@ jobs:
           done
           exit $FAILED
 
+      # Unlike the scans below, this gate blocks: an image that wasn't signed
+      # by our own pipeline must never reach a merge.
+      - name: Verify container images (signature + provenance)
+        uses: ./.github/actions/verify-images
+        with:
+          paths: ${{ join(fromJson(needs.detect-changes.outputs.projects), ' ') }}
+
       # Gitleaks: fast, pure pattern-matching secret scan, no network calls.
       # (TruffleHog was dropped - same job, but its live-credential
       # verification step makes it much slower for no real benefit on a
@@ -209,6 +218,13 @@ jobs:
         with:
           branch: ${{ github.ref_name }}
           working_directory: ${{ matrix.working_directory }}
+
+      # Checked again at deploy time, before touching Azure, so a direct push
+      # that skipped the PR gate still can't deploy an unverified image.
+      - name: Verify container images (signature + provenance)
+        uses: ./.github/actions/verify-images
+        with:
+          paths: ${{ matrix.working_directory }}
 
       - name: Terraform Azure Init
         uses: ./.github/actions/terraform-azure-init
