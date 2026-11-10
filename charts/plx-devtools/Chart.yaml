@@ -1,0 +1,8 @@
+apiVersion: v2
+name: plx-devtools
+description: plx-devtools web app (FastAPI), hardened for Kubernetes and pinned to a signed image digest.
+type: application
+# Chart version: bump on any template or default change.
+version: 0.1.0
+# Informational only; the deployed image is set by image.digest.
+appVersion: "2b09d89"
