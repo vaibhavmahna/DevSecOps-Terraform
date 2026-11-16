@@ -1,0 +1,62 @@
+name: Kubernetes - charts & GitOps
+
+# PR -> lint the Helm charts, render them and validate every manifest against
+#       the Kubernetes API schema. Nothing touches a cluster here; Argo CD
+#       deploys from git (Project 2).
+on:
+  pull_request:
+    branches: [dev, staging, master]
+    paths:
+      - "charts/**"
+      - "gitops/**"
+      - ".github/workflows/k8s.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: "v4.3.1"
+  KUBECONFORM_VERSION: "v0.8.0"
+  # Matches the kind cluster (kind v0.33.0 default node image).
+  KUBERNETES_VERSION: "1.37.0"
+
+concurrency:
+  group: k8s-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  charts:
+    name: Helm Lint & Schema Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubeconform
+        run: |
+          base="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -fsSLo kubeconform.tar.gz "$base/kubeconform-linux-amd64.tar.gz"
+          curl -fsSLo CHECKSUMS "$base/CHECKSUMS"
+          grep ' kubeconform-linux-amd64.tar.gz$' CHECKSUMS | sed 's/kubeconform-linux-amd64.tar.gz/kubeconform.tar.gz/' | sha256sum -c -
+          tar -xzf kubeconform.tar.gz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+
+      - name: Lint, render and validate
+        run: |
+          status=0
+          for chart in charts/*/; do
+            name=$(basename "$chart")
+            echo "::group::$name"
+            helm lint --strict "$chart" || status=1
+            helm template "$name" "$chart" > "/tmp/$name.yaml" || status=1
+            kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" "/tmp/$name.yaml" || status=1
+            echo "::endgroup::"
+          done
+          exit $status

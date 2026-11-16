@@ -1,0 +1,474 @@
+{
+ "version": "1.0.0",
+ "installed_at": "2026-11-16T16:47:42",
+ "files": {
+  ".claude/agents/code-reviewer.md": "7e5e0a048b355d44283393d50cd2e565c461e9cc6799254e69d4bd666d49e374",
+  ".claude/agents/coding-agent.md": "8affb46a464bb34b4aa39f902b838b5cbe2b8bf86e2a662d6f1c563539c4534b",
+  ".claude/agents/commit-helper.md": "5864463cc2fb7caf4829cf54c41463197d687ec35c45832f64a8c85c08741e7a",
+  ".claude/agents/compliance-reviewer.md": "a8c7faf52e5ebe9469cd44b72a8fa4889eb32c3c8763c4fb05e9afa00598d689",
+  ".claude/agents/diagram-builder.md": "127fcaaba55c44ec6ba9478db48242c3b7fc6f7610d72d15f3433bc0e2bc133b",
+  ".claude/agents/diagram-reviewer.md": "dc26c685ca715d8bfd3d395d7c6391e4deb544db7d4bd83cbced0572b9d49295",
+  ".claude/agents/doc-reviewer.md": "5ac7a5d27a4ae3617bc5ba66dac7252be9a449e00d1cf4bdc4dee0563b7c1cfc",
+  ".claude/agents/doc-writer.md": "cf06041ac2ef9b52f30bc5cbb347ec81df8055a1a433096e72122644d7c89f12",
+  ".claude/agents/frontend-ui-builder.md": "4e8c0f39e1a31932189024fa3e3ea0f7f919830c75ebdd286110f275173b45ab",
+  ".claude/agents/knowledge-keeper.md": "83fcf43cead3bf5fad5bdd1a089800cbb80d8fb462a4ace104153241681fa9f8",
+  ".claude/agents/lint-fixer.md": "088c853838bfe9399e9ab4c0e25678d8ebcfe5c173d1e2566a4536760706a26e",
+  ".claude/agents/orchestrator.md": "d520f01c8fd01f993854c8b020ac4ec6e26571fc6ab3a33e3dba1cc1a7d400ab",
+  ".claude/agents/repo-explorer.md": "82ab54a99a95bcfaca596f96ed460d4be493913a4a950397d35d83606c90bc26",
+  ".claude/agents/security-auditor.md": "95b6597cb9f196ad375415aea29030d59cd9531b84d167e78e3a2db7368f2d04",
+  ".claude/harness.json": "3d23d87fcb0a0306bfc86c91f0b79a1133d03d47721c46d7de45d7d27b4eeae4",
+  ".claude/hooks/context_guard.py": "cd0c0d93da465524e69c78a037dea100645ea9ce003b18059d8ad2700360d0a4",
+  ".claude/hooks/doc_check.py": "c3ce60887befcb73c17434fa053485e6847a699b706b569b4da332386e58c949",
+  ".claude/hooks/guard_bash.py": "466137798c31128056bc0118c762b07dbf83799bafed7e2ae523f4e951fe8606",
+  ".claude/hooks/guard_compliance.py": "9b569612b99dff85214323200ec049ab9cc02e1e9a60b57ba3462336eb0ba569",
+  ".claude/hooks/guard_egress.py": "283abd315a90561068687b695ded5a602e944e077806e0a5b9007e3a849e9f0c",
+  ".claude/hooks/guard_prompt.py": "aa7d66361026fbc75ed0de0e0e1eb22ede9d69a199a2f2964c22d592bdeaca25",
+  ".claude/hooks/guard_read.py": "926515bf091a06fec2ad009f9fa146f836a8270099a05b51f7b6e442fbb2dac0",
+  ".claude/hooks/guard_write.py": "e2f0988215e05a620ddeaa16d0d05ba8416a6e14d0123d519d27f10046d1b4f4",
+  ".claude/hooks/handoff_watch.py": "685b17a880d29e3d37773f641f619a644cc477fdd78f5a16033d76b62bd4065e",
+  ".claude/hooks/housekeeping.py": "dc7d8cef6f71c305950923f46b854d27f69f8ceaf6588a0733b783fc06fc2de8",
+  ".claude/hooks/kg_hooks.py": "7d998fbc1d9e7f669f77b50a767eef04744aedb9b5c5d88da2695cbe2d22fc6b",
+  ".claude/hooks/lib/common.py": "6177d0bffe3d8a25674caf424e4d8bddf3d8f197e72ff5b79c21279d9786ae0e",
+  ".claude/hooks/lib/detectors.py": "e87d33a1e89e2de6948f05029ba87a03a4dcc3432773ca513d2986aca9b83b3a",
+  ".claude/hooks/redact_output.py": "24781c6e68b65171c5a24e94e797b108d9c8a9cacb286fb955fa849f82cf96f6",
+  ".claude/hooks/session_start.py": "e34f6b29522ca5c06b2b101034f8a28f44d6817503190f8dd3c73d5bf56a304c",
+  ".claude/hooks/stop_checks.py": "1e50a09c6880dd83f825e11dd072ea1fc203e93bb5637a83d554c953a37251c6",
+  ".claude/knowledge/handoffs/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  ".claude/skills/ask-me/SKILL.md": "aa18ad481c280aae04aafeb43af33018b5e936114366d7a8f84faeb6324809c3",
+  ".claude/skills/clean-me-up/SKILL.md": "1d3b37726208b21d75456db7e0393727ada39c2c40e2bb46fa477a59d50af706",
+  ".claude/skills/data-handling-compliance/SKILL.md": "8b27be2a20d4c611a4be183357d92d72949575f058376f415ca7ca2b1e5b7d87",
+  ".claude/skills/data-handling-compliance/references/ai-features.md": "74b64404c8e1fce3b0e48b1bb25b5a4a1c719c957ae006c6401c37cd4cebbcc2",
+  ".claude/skills/data-handling-compliance/references/customer-data.md": "8dacf029151c5dcdadef7d8dbcf41af9eb3bee3142870be9660a45e44f0e6d00",
+  ".claude/skills/data-handling-compliance/references/open-items.md": "2d1e92c48b1de1942c1d0164e58916dcaa633f886cc8732b29ba52300b7cd13c",
+  ".claude/skills/data-handling-compliance/references/phi.md": "b05d5af8826d874a22a8bac4e58bf69bda6b93950e11569c77ad7656558fdb85",
+  ".claude/skills/data-handling-compliance/references/pii.md": "7abaeb0cb2b4ec82e11803e18ed1bc335d7750c49aa1a2379a0ed3d3b1c1e0f3",
+  ".claude/skills/data-handling-compliance/references/pr-compliance-note.md": "025e9350484ab0592f9bd823c93ae4628c4478fb3a5647caec2adee3eacefea1",
+  ".claude/skills/data-handling-compliance/references/soc2.md": "03a0d2c5ca0c54a472aef51d436ea3b55be44584347fd55eddab58243e605914",
+  ".claude/skills/diagram-maker/SKILL.md": "c74d76c2cd9ecee718c1cdda27957547b384676b71ff802dfde47a464b31be61",
+  ".claude/skills/diagram-maker/references/mermaid-templates.md": "2f3e346866af6cad2fafb10aa55158f250a7189c2cbfb5c3f7e13e5cf5d951db",
+  ".claude/skills/diagram-maker/references/svg-architecture-auto.svg": "8b2cb20da6c128f44a44a6e655cc6f2d92eadc878e3f3ae10f6542576601bc04",
+  ".claude/skills/diagram-maker/references/svg-architecture-dark.svg": "92d946f48799f064c3fe33b2d1a872231172dddd715b13f7efc58c97adde6881",
+  ".claude/skills/diagram-maker/references/svg-architecture-light.svg": "39543e25536f48e267ec1f4cf2df872d611774f6b43e27565a501d7f6ead95c3",
+  ".claude/skills/diagram-maker/references/svg-flow-auto.svg": "97ee9a2f8d131fa2389ef4361714043dd66cf814131a4fef9c88033021a09d05",
+  ".claude/skills/diagram-maker/references/svg-flow-dark.svg": "d3823b593f8b38ea7ddd45da76d4fb526a3401d093530e5f531c5f999d962d86",
+  ".claude/skills/diagram-maker/references/svg-flow-light.svg": "b690029bf98518120fa5988526cac62716f0eef1936918739b53a2b1b98fb466",
+  ".claude/skills/doc-standards/SKILL.md": "71b9792d116e31dc23c2e819930f705f6fd7527c40d83807509bef7b92994c1e",
+  ".claude/skills/doc-standards/references/adr.md": "5db20cd2a773b59840acce77e4e6ab91102f72e508521dc35a16e442b689ad0f",
+  ".claude/skills/doc-standards/references/api.md": "419176d5a2ebfa30738a5de94fa43240ab01dca2385bddf63c4c146eb5511908",
+  ".claude/skills/doc-standards/references/readme.md": "b834ab2da3449f30fefe6485f55c2c0b2c6ee55122ae37d13fe265061187fe99",
+  ".claude/skills/doc-standards/references/runbook.md": "11c39cd61b8b1bae5e7a998e177a6a52552a46fbb31f76e4ea842b4a84c998cc",
+  ".claude/skills/dsa-conscious-coding/SKILL.md": "a13a16b4e7a12c9b231874a305a72ee264a4fb91d5d3ce29ff2bcc8385d7e34e",
+  ".claude/skills/dsa-conscious-coding/references/anti-patterns.md": "c331fd3bfd98a294034db50137206d2f390f5620013593d0873cd5bc0018db21",
+  ".claude/skills/dsa-conscious-coding/references/structures.md": "b788f8afa060f2cc67bf900937533e5ece87e6b0ad591abf4fd74306b9843a1f",
+  ".claude/skills/frontend-a11y-design/SKILL.md": "7ad169089b1b8e85a91d819315011f55d02d79ef5ea50df97fd2f6edd6fbd5fc",
+  ".claude/skills/frontend-a11y-design/references/checklist.md": "d1d676b034893d867f388ce3752eaf31c35a44491e5cc9bfaada48a0d0a1eaa4",
+  ".claude/skills/frontend-a11y-design/references/tokens.css": "e0427133a45d15d8ec15da30f697e5edcea4ab5b6f9024ee6d11acd47c78b336",
+  ".claude/skills/handoff/SKILL.md": "8ffb5b6dcb7f06545e6354e9e58fe57c4f2862dc4378b3ba49df46a71301ee83",
+  ".claude/skills/harness-doctor/SKILL.md": "74435f4b6afd25de8f3a68708d0353ededaab9804fb810815d07b3a87b63aea8",
+  ".claude/skills/kg-bootstrap/SKILL.md": "611b95a86c5b4d89dc32a3b64100daecbf51a83e0ea969e56e410ab204d3160f",
+  ".claude/skills/knowledge-graph/SKILL.md": "c4e01ecd7811d53b7127d7d18a753a84f9496bf1f1f834e53ad5d5e53ad6eac4",
+  ".claude/skills/knowledge-graph/references/examples.md": "e3bee6a0dfc43ecfe422f722e4c63a800da62567d67b3ea8951995fd923e1212",
+  ".claude/skills/resume-handoff/SKILL.md": "863cbd01b4f3d076ec3552cd8abb25870427900d480f8644ac7889322ef186ad",
+  ".claude/skills/safe-read/SKILL.md": "f79486c63cfa8508ba85f8f9017ad69aae7b2893c2d86d11e71a90ec99957b78",
+  ".claude/skills/secure-coding/SKILL.md": "227683645485afcfe5b4b48a46141efd47b0663bce8b8473b9b1a25ca72868ee",
+  ".claude/skills/secure-coding/references/patterns.md": "5067870e4253dcf87c09d4fd660a8c3319de0a20d1b5415564e8ceb7ef105a3a",
+  ".claude/skills/simple-design/SKILL.md": "66ebb854de705e6fcda9b60f10497812c9d8eaa5b6d4fbadc94ab99852452678",
+  ".claude/skills/test-driven-dev/SKILL.md": "582f2a2dfddac1174f76f968dd240e29588378f85a30d165602cf42dcd66d8b2",
+  ".claude/skills/token-budget/SKILL.md": "2f5217345f2b5a1ad58e7f921cb10c72087c38b8bf8725c160ad97fc33fd6d2d",
+  ".claude/tools/cleanup.py": "e7daeaa8dd10ce4144e07dfe8ab25bee19e377242142a5c133fddcfc22e6211d",
+  ".claude/tools/compliance.py": "65404ecfd625a641c10473730ddef2aebd2c300f54aaa5f86463b7b6313f64e5",
+  ".claude/tools/doc_format.py": "366781baa0f6b818ca39e0cc298a06fcb54c6cb56a06ea5eb3c69ae25112235c",
+  ".claude/tools/doctor.py": "409390c224fdd9ae8b25ddcde2978b952d0d806786f274d1a98bbedbd735a6be",
+  ".claude/tools/kg.py": "936f830de4b35564087ad2cf9ac6d9bff199960bd50e61bd95ffd6194fbea585",
+  ".claude/tools/safe_read.py": "186cac9ecd440a47930e0e1c9d3757f5862f4edd232363d371c44f9b081cb30d",
+  ".claude/tools/save.py": "fc69846e487a1f67aff46373d7ad7d8fd78df95c1acc258d5d40a7dc4615bcee",
+  ".claude/tools/stack.py": "d0b6ec1df00b8e4b26a50bb1f69feeee771b45718fa102d417f64a76718b0088",
+  ".claude/tools/statusline.py": "fcccef1303d63a7d79a68d36d157a794235ef50a069a77e771f361ca7bf21e77",
+  ".claude/tools/svg_lint.py": "8102e9c41974e9b08ea661c57c1ad1dc9fdbdd3283643325453b991b123e2522"
+ },
+ "settings_fragment": {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+   "deny": [
+    "Read(**/.env)",
+    "Read(**/.env.local)",
+    "Read(**/.env.*.local)",
+    "Read(**/.env.development)",
+    "Read(**/.env.production)",
+    "Read(**/.env.staging)",
+    "Read(**/.env.test)",
+    "Read(**/*.pem)",
+    "Read(**/*.key)",
+    "Read(**/*.p12)",
+    "Read(**/*.pfx)",
+    "Read(**/*.jks)",
+    "Read(**/*.keystore)",
+    "Read(**/id_rsa*)",
+    "Read(**/id_dsa*)",
+    "Read(**/id_ecdsa*)",
+    "Read(**/id_ed25519*)",
+    "Read(**/*.kdbx)",
+    "Read(**/.npmrc)",
+    "Read(**/.pypirc)",
+    "Read(**/.netrc)",
+    "Read(**/.git-credentials)",
+    "Read(**/.pgpass)",
+    "Read(**/*.tfstate)",
+    "Read(**/*.tfstate.*)",
+    "Read(**/secrets/**)",
+    "Read(**/.secrets/**)",
+    "Read(**/credentials*.json)",
+    "Read(**/service-account*.json)",
+    "Read(~/.ssh/**)",
+    "Read(~/.aws/**)",
+    "Read(~/.gnupg/**)",
+    "Read(~/.config/gcloud/**)",
+    "Read(~/.kube/config)",
+    "Read(~/.docker/config.json)",
+    "Read(~/.netrc)",
+    "Read(~/.git-credentials)",
+    "Read(~/.npmrc)",
+    "Read(~/.pypirc)",
+    "Read(~/.zsh_history)",
+    "Read(~/.bash_history)",
+    "Edit(**/.env)",
+    "Edit(**/.env.local)",
+    "Edit(**/.env.*.local)",
+    "Edit(**/.env.development)",
+    "Edit(**/.env.production)",
+    "Edit(**/.env.staging)",
+    "Edit(**/.env.test)",
+    "Edit(**/*.pem)",
+    "Edit(**/*.key)",
+    "Edit(**/*.p12)",
+    "Edit(**/*.pfx)",
+    "Edit(**/*.jks)",
+    "Edit(**/*.keystore)",
+    "Edit(**/id_rsa*)",
+    "Edit(**/id_dsa*)",
+    "Edit(**/id_ecdsa*)",
+    "Edit(**/id_ed25519*)",
+    "Edit(**/*.kdbx)",
+    "Edit(**/.npmrc)",
+    "Edit(**/.pypirc)",
+    "Edit(**/.netrc)",
+    "Edit(**/.git-credentials)",
+    "Edit(**/.pgpass)",
+    "Edit(**/*.tfstate)",
+    "Edit(**/*.tfstate.*)",
+    "Edit(**/secrets/**)",
+    "Edit(**/.secrets/**)",
+    "Edit(**/credentials*.json)",
+    "Edit(**/service-account*.json)",
+    "Edit(~/.ssh/**)",
+    "Edit(~/.aws/**)",
+    "Edit(~/.gnupg/**)",
+    "Edit(~/.config/gcloud/**)",
+    "Edit(~/.kube/config)",
+    "Edit(~/.docker/config.json)",
+    "Edit(~/.netrc)",
+    "Edit(~/.git-credentials)",
+    "Edit(~/.npmrc)",
+    "Edit(~/.pypirc)",
+    "Edit(~/.zsh_history)",
+    "Edit(~/.bash_history)",
+    "Edit(/.claude/settings.json)",
+    "Edit(/.claude/settings.local.json)",
+    "Edit(/.claude/harness.json)",
+    "Edit(/.claude/.harness-manifest.json)",
+    "Edit(/.claude/hooks/**)",
+    "Edit(/.claude/tools/**)",
+    "Edit(/.claude/security/**)",
+    "Bash(rm *)",
+    "Bash(rm)",
+    "Bash(rmdir *)",
+    "Bash(shred *)",
+    "Bash(unlink *)",
+    "Bash(sudo *)",
+    "Bash(su *)",
+    "Bash(dd *)",
+    "Bash(mkfs*)",
+    "Bash(truncate *)",
+    "Bash(chmod -R 777 *)",
+    "Bash(git push --force*)",
+    "Bash(git push -f*)",
+    "Bash(git push * --force*)",
+    "Bash(git push * -f*)",
+    "Bash(git reset --hard*)",
+    "Bash(git clean -f*)",
+    "Bash(git clean -d*)",
+    "Bash(git branch -D *)",
+    "Bash(git checkout -- .)",
+    "Bash(git filter-branch*)",
+    "Bash(git stash drop*)",
+    "Bash(git stash clear*)",
+    "Bash(git commit --no-verify*)",
+    "Bash(git commit * --no-verify*)",
+    "Bash(git commit-tree*)",
+    "Bash(printenv*)",
+    "Bash(env)",
+    "Bash(npm publish*)",
+    "Bash(pnpm publish*)",
+    "Bash(yarn publish*)",
+    "Bash(curl * | sh*)",
+    "Bash(curl * | bash*)",
+    "Bash(wget * | sh*)",
+    "Bash(wget * | bash*)",
+    "Bash(kubectl delete *)",
+    "Bash(terraform destroy*)",
+    "Bash(docker system prune*)",
+    "Bash(security find-generic-password*)",
+    "Bash(security find-internet-password*)",
+    "Bash(gh auth token*)",
+    "Bash(cat ~/.ssh/*)",
+    "Bash(cat ~/.aws/*)"
+   ],
+   "ask": [
+    "Bash(git push)",
+    "Bash(git push *)",
+    "Bash(git rebase *)",
+    "Bash(git commit --amend*)",
+    "Bash(npm install *)",
+    "Bash(npm i *)",
+    "Bash(pnpm add *)",
+    "Bash(pnpm install *)",
+    "Bash(yarn add *)",
+    "Bash(pip install *)",
+    "Bash(pip3 install *)",
+    "Bash(poetry add *)",
+    "Bash(uv add *)",
+    "Bash(docker push *)",
+    "Bash(gh pr create*)",
+    "WebFetch"
+   ],
+   "allow": [
+    "Bash(git status*)",
+    "Bash(git diff*)",
+    "Bash(git log*)",
+    "Bash(git show*)",
+    "Bash(git add *)",
+    "Bash(git commit -m *)",
+    "Bash(git branch)",
+    "Bash(git branch --list*)",
+    "Bash(git branch -a*)",
+    "Bash(git switch *)",
+    "Bash(git checkout -b *)",
+    "Bash(git stash list*)",
+    "Bash(git stash push*)",
+    "Bash(git fetch*)",
+    "Bash(git blame *)",
+    "Bash(git remote -v)",
+    "Bash(git ls-files*)",
+    "Bash(git rev-parse *)",
+    "Bash(ls)",
+    "Bash(ls *)",
+    "Bash(pwd)",
+    "Bash(cat *)",
+    "Bash(head *)",
+    "Bash(tail *)",
+    "Bash(wc *)",
+    "Bash(tree*)",
+    "Bash(grep *)",
+    "Bash(rg *)",
+    "Bash(gh pr view*)",
+    "Bash(gh pr list*)",
+    "Bash(gh pr checks*)",
+    "Bash(gh pr diff*)",
+    "Bash(docker compose ps*)",
+    "Bash(docker compose logs*)",
+    "Bash(python3 .claude/tools/kg.py *)",
+    "Bash(python3 .claude/tools/save.py *)",
+    "Bash(python3 .claude/tools/safe_read.py *)",
+    "Bash(python3 .claude/tools/svg_lint.py *)",
+    "Bash(python3 .claude/tools/doc_format.py *)",
+    "Bash(python3 .claude/tools/cleanup.py *)",
+    "Bash(python3 .claude/tools/stack.py*)",
+    "Bash(python3 .claude/tools/doctor.py*)",
+    "Bash(python3 .claude/tools/compliance.py *)"
+   ],
+   "disableBypassPermissionsMode": "disable"
+  },
+  "fallbackModel": [
+   "opus"
+  ],
+  "env": {
+   "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85"
+  },
+  "sandbox": {
+   "enabled": true,
+   "autoAllowBashIfSandboxed": false,
+   "filesystem": {
+    "denyRead": [
+     "~/.ssh",
+     "~/.aws",
+     "~/.gnupg",
+     "~/.config/gcloud",
+     "~/.kube",
+     "~/.docker/config.json",
+     "~/.netrc",
+     "~/.git-credentials",
+     "~/.npmrc",
+     "~/.pypirc"
+    ]
+   }
+  },
+  "statusLine": {
+   "type": "command",
+   "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/tools/statusline.py\""
+  },
+  "hooks": {
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py\"",
+       "timeout": 20
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_prompt.py\"",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/context_guard.py\"",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/kg_hooks.py\" nudge",
+       "timeout": 15
+      }
+     ]
+    }
+   ],
+   "PreToolUse": [
+    {
+     "matcher": "Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py\"",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_read.py\"",
+       "timeout": 60
+      }
+     ]
+    },
+    {
+     "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_write.py\"",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "WebFetch|WebSearch|mcp__.*",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_egress.py\"",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "Write|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/housekeeping.py\" pre",
+       "timeout": 15
+      }
+     ]
+    }
+   ],
+   "PostToolUse": [
+    {
+     "matcher": "Bash|Grep|WebFetch|mcp__.*",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/redact_output.py\"",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/kg_hooks.py\" track",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/doc_check.py\"",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "Agent|Task",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/handoff_watch.py\"",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_compliance.py\"",
+       "timeout": 30
+      },
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/kg_hooks.py\" nudge",
+       "timeout": 15
+      }
+     ]
+    },
+    {
+     "matcher": "*",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/context_guard.py\"",
+       "timeout": 15
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_checks.py\"",
+       "timeout": 30
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

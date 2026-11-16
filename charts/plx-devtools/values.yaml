@@ -1,0 +1,32 @@
+# Defaults for every environment. Per-environment overrides live in gitops/.
+
+replicaCount: 1
+
+# The image is always pulled by digest: a tag can be moved to other content,
+# a digest can't, and the digest is what cosign signed (Project 1). The tag
+# is kept only to show the commit in /api/info.
+image:
+  repository: ghcr.io/vaibhavmahna/plx-devtools
+  tag: 2b09d89ad5f5c070979ef543f3284afab8055332
+  digest: sha256:05124c482c9f61b66ce88f6dafe261df2dbe20561d62ec614f0754b95b08810a
+  pullPolicy: IfNotPresent
+
+environment: local
+
+# Optional secrets, read from an existing Kubernetes Secret (never from
+# values). Missing secrets are fine: the app reports "not connected".
+#   secretEnv:
+#     SIGNING_KEY: { secretName: plx-devtools-secrets, key: signing-key }
+secretEnv: {}
+
+service:
+  port: 80
+
+# Same size as the Container App (0.25 vCPU / 0.5 GiB limit).
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
