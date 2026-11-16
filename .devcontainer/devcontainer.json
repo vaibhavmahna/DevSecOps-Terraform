@@ -1,0 +1,32 @@
+{
+  // Project 2 (GitOps on Kubernetes) workspace. Runs in a GitHub Codespace:
+  // kind needs Docker, which the laptop doesn't have.
+  "name": "plx-gitops",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "1.37.2",
+      "helm": "4.3.1",
+      "minikube": "none"
+    }
+  },
+  // Tools without a devcontainer feature, pinned and checksum-verified.
+  "postCreateCommand": "bash .devcontainer/install-tools.sh",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Argo CD UI (kubectl port-forward)" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}

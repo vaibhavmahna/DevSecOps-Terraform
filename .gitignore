@@ -17,3 +17,19 @@ override.tf.json
 .venv/
 __pycache__/
 .pytest_cache/
+
+# harness:start
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+.claude/settings.local.json
+.claude/state/
+.claude/scratch/
+.claude/knowledge/handoffs/*
+!.claude/knowledge/handoffs/.gitkeep
+.claude/**/*.bak-*
+.claude/**/__pycache__/
+# harness:end

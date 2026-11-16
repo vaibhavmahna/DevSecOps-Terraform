@@ -1,0 +1,5 @@
+plx-devtools ({{ .Values.environment }}) is running {{ include "plx-devtools.image" . }}
+
+Open it:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }} 8080:{{ .Values.service.port }}
+  then browse http://localhost:8080 (Codespaces forwards the port for you)
