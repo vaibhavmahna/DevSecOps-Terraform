@@ -1,0 +1,92 @@
+{
+ "version": 1,
+ "nodes": [
+  {
+   "id": "architecture-overview",
+   "kind": "architecture",
+   "title": "Architecture overview",
+   "summary": "Top-level layout and stack of DevSecOps Terraform",
+   "tags": [
+    "architecture",
+    "layout",
+    "overview",
+    "seed",
+    "structure"
+   ],
+   "sources": [
+    "apps/",
+    "charts/",
+    "docs/",
+    "modules/",
+    "policies/",
+    "projects/",
+    "risk-engine/"
+   ],
+   "file": ".claude/knowledge/nodes/architecture-overview.md"
+  },
+  {
+   "id": "doc-readme",
+   "kind": "doc",
+   "title": "README.md",
+   "summary": "Sections of README.md",
+   "tags": [
+    "docs",
+    "readme",
+    "seed"
+   ],
+   "sources": [
+    "README.md"
+   ],
+   "file": ".claude/knowledge/nodes/doc-readme.md"
+  },
+  {
+   "id": "entrypoint-apps-plx-devtools-main",
+   "kind": "entrypoint",
+   "title": "Entry: apps/plx-devtools/main.py",
+   "summary": "Program entry point apps/plx-devtools/main.py",
+   "tags": [
+    "entrypoint",
+    "main",
+    "seed",
+    "startup"
+   ],
+   "sources": [
+    "apps/plx-devtools/main.py:1-40"
+   ],
+   "file": ".claude/knowledge/nodes/entrypoint-apps-plx-devtools-main.md"
+  },
+  {
+   "id": "entrypoint-apps-plx-devtools-static-app",
+   "kind": "entrypoint",
+   "title": "Entry: apps/plx-devtools/static/app.js",
+   "summary": "Program entry point apps/plx-devtools/static/app.js",
+   "tags": [
+    "entrypoint",
+    "main",
+    "seed",
+    "startup"
+   ],
+   "sources": [
+    "apps/plx-devtools/static/app.js:1-40"
+   ],
+   "file": ".claude/knowledge/nodes/entrypoint-apps-plx-devtools-static-app.md"
+  }
+ ],
+ "edges": [
+  {
+   "from": "doc-readme",
+   "to": "architecture-overview",
+   "type": "related"
+  },
+  {
+   "from": "entrypoint-apps-plx-devtools-main",
+   "to": "architecture-overview",
+   "type": "related"
+  },
+  {
+   "from": "entrypoint-apps-plx-devtools-static-app",
+   "to": "architecture-overview",
+   "type": "related"
+  }
+ ]
+}
