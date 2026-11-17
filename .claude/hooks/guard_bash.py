@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse Bash: block destructive commands and secret exfiltration.
+"""PreToolUse Bash|PowerShell: block destructive commands and secret exfiltration.
 
 The command line is parsed into simple commands (split on ; && || | & and
 newlines, with $(...), backticks, <(...), `bash -c`, `eval`, `xargs`, `find -exec`
@@ -431,12 +431,107 @@ def install_scripts_rule(c: str, sub: str, args: List[str]) -> Verdict:
                     "package to the user and let them run the build themselves (for npm: `npm rebuild <package>`).")
 
 
+PS_DELETE = {"remove-item", "ri", "del", "erase", "rd", "clear-content", "clc", "remove-itemproperty",
+             "format-volume", "clear-disk", "initialize-disk", "remove-partition"}
+PS_SYSTEM = {"stop-computer", "restart-computer", "stop-service", "remove-service", "disable-computerrestore"}
+
+
+def infra_rules(c: str, args: List[str], joined: str) -> Verdict:
+    """Cloud, cluster and IaC commands that print secrets, mint credentials or grant access; PowerShell cmdlets."""
+    cl = c.lower()
+    low = joined.lower()
+    # ---- PowerShell (the same guard runs for the PowerShell tool)
+    if cl in PS_DELETE:
+        return "deny", f"`{c}` deletes data; deletion is reserved for the user"
+    if cl in PS_SYSTEM:
+        return "deny", f"`{c}` system control is not allowed"
+    if cl in {"get-childitem", "gci", "ls", "dir", "get-item", "gi"} and re.search(r"(?i)(?:^|\s)env:", joined):
+        return "deny", "dumping environment variables can expose secrets"
+    if cl in {"start-process", "saps"} and re.search(r"(?i)-verb\s+runas", joined):
+        return "deny", "running elevated (RunAs) is not allowed"
+    if cl == "invoke-expression" or (cl == "iex" and not (args and args[0].startswith("-"))):  # `iex -S mix` is Elixir
+        return "deny", "`Invoke-Expression` runs code built at runtime; it cannot be inspected"
+    if cl in {"write-output", "write-host", "echo", "write", "out-host", "out-string"} and \
+            re.search(r"(?i)\$env:\w*(?:secret|token|key|pass|pwd|cred|pat\b)", joined):
+        return "deny", "printing secret-looking environment variables is not allowed"
+    if cl in {"convertfrom-securestring"} and "-asplaintext" in low:
+        return "deny", "converting a secure string to plain text exposes the secret"
+    if cl == "set-executionpolicy":
+        return "ask", "changing the PowerShell execution policy; confirm"
+    if re.match(r"(?i)^remove-az", c):
+        return "deny", f"`{c}` deletes Azure resources"
+    if re.match(r"(?i)^(get-azkeyvaultsecret|get-azstorageaccountkey|get-azaccesstoken|new-azstorage\w*sastoken|"
+                r"get-azwebappslot?publishingprofile|get-azcontainerregistrycredential)$", c):
+        return "deny", f"`{c}` reads or creates credentials"
+    if re.match(r"(?i)^new-azroleassignment$", c):
+        return "ask", "granting Azure permissions; confirm"
+    # ---- Terraform / OpenTofu
+    if cl in {"terraform", "tofu"}:
+        sub = args[:1]
+        if sub == ["output"] and ({"-raw", "-json"} & {a.split("=")[0] for a in args}):
+            return "deny", f"`{c} output -raw/-json` prints sensitive outputs in plain text"
+        if sub == ["output"] and [a for a in args[1:] if not a.startswith("-")]:
+            return "ask", f"`{c} output <name>` prints the value even when it is marked sensitive; confirm"
+        if sub == ["show"] and "-json" in args:
+            return "deny", f"`{c} show -json` prints state, including sensitive values, in plain text"
+        if args[:2] == ["state", "pull"]:
+            return "deny", f"`{c} state pull` dumps the full state, including secrets"
+        if sub and sub[0] in {"force-unlock", "taint", "untaint", "console"} or args[:2] == ["workspace", "delete"]:
+            return "ask", f"`{c} {' '.join(args[:2])}` changes or exposes state; confirm"
+    # ---- Kubernetes / Helm
+    if cl == "kubectl":
+        if re.search(r"\bdescribe\s+secrets?\b", low) or re.search(r"\bcreate\s+token\b", low):
+            return "deny", "reading or minting cluster credentials is not allowed"
+        if args[:1] == ["exec"]:
+            inner = args[args.index("--") + 1:] if "--" in args else []
+            if inner and (os.path.basename(inner[0]) in {"env", "printenv", "set"} or
+                          re.search(r"(?i)secret|token|\.env|environ", " ".join(inner))):
+                return "deny", "reading environment or secrets inside a pod is not allowed"
+            return "ask", "`kubectl exec` runs a command inside a running container; confirm"
+    if cl == "helm":
+        if args[:1] == ["get"] and args[1:2] and args[1] in {"values", "all", "manifest"}:
+            return "deny", f"`helm get {args[1]}` can print secret values"
+        if args[:1] and args[0] in {"install", "upgrade"}:
+            return "ask", f"`helm {args[0]}` changes a cluster; confirm"
+    # ---- Azure CLI
+    if cl == "az":
+        if re.search(r"\b(storage\s+account\s+(keys\s+(list|renew)|show-connection-string|generate-sas)|"
+                     r"storage\s+\S+\s+generate-sas|acr\s+credential\s+(show|renew)|"
+                     r"(webapp|functionapp)\s+config\s+appsettings\s+list|"
+                     r"(webapp|functionapp)\s+deployment\s+list-publishing-(profiles|credentials)|"
+                     r"keyvault\s+(secret|key|certificate)\s+(download|backup)|"
+                     r"ad\s+(sp|app)\s+credential\s+reset|ad\s+sp\s+create-for-rbac|"
+                     r"cosmosdb\s+keys\s+list|redis\s+list-keys|\S+\s+(authorization-rule\s+)?keys\s+list|"
+                     r"sql\s+db\s+show-connection-string|aks\s+get-credentials\b.*--admin)", low):
+            return "deny", "this az command reads or creates credentials; ask the user to run it"
+        if args[:1] == ["login"] and re.search(r"(?:^|\s)(-p|--password)\b", " " + joined):
+            return "deny", "`az login` with a password or secret on the command line; use a managed identity or env vars"
+        if re.search(r"\b(role\s+assignment\s+create|aks\s+get-credentials)\b", low):
+            return "ask", "this az command grants access or adds cluster credentials; confirm"
+    # ---- AWS / GCP / Vault
+    if cl == "aws" and re.search(r"\b(iam\s+create-(access-key|login-profile|service-specific-credential)|"
+                                 r"ecr\s+get-login-password|kms\s+decrypt|sts\s+assume-role)\b", low):
+        return "deny", "this aws command creates or reveals credentials; ask the user to run it"
+    if cl == "aws" and re.search(r"\biam\s+(attach|put)-\S*policy\b", low):
+        return "ask", "granting AWS permissions; confirm"
+    if cl == "gcloud" and re.search(r"\b(service-accounts\s+keys\s+create|auth\s+application-default\s+print-access-token)\b", low):
+        return "deny", "this gcloud command creates or reveals credentials; ask the user to run it"
+    if cl == "gcloud" and re.search(r"\badd-iam-policy-binding\b", low):
+        return "ask", "granting GCP permissions; confirm"
+    if cl == "vault" and args[:1] and args[0] in {"token", "print", "unwrap", "login"}:
+        return "deny", f"`vault {args[0]}` creates or reveals credentials"
+    return None
+
+
 def cmd_rules(argv: List[str]) -> Verdict:
     c, args = argv[0], argv[1:]
     f = _flags(args)
     joined = " ".join(args)
     if c in {"sudo", "su", "doas", "pkexec"}:
         return "deny", f"`{c}` (privilege escalation) is not allowed"
+    v = infra_rules(c, args, joined)
+    if v:
+        return v
     if c in {"rm", "rmdir", "unlink", "shred", "srm", "trash", "wipefs", "fdisk", "sfdisk", "parted"} or c.startswith("mkfs"):
         return "deny", f"`{c}` deletes data; deletion is reserved for the user"
     if c == "truncate" or c == "dd":

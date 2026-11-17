@@ -263,7 +263,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -315,7 +315,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Grep|WebFetch|mcp__.*",
+        "matcher": "Bash|PowerShell|Grep|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

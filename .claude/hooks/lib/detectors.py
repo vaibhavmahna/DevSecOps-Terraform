@@ -5,6 +5,8 @@ callers must report names, never matched values.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import bisect
 import fnmatch
 import hashlib
@@ -174,6 +176,19 @@ def _connstr_ok(v: str) -> bool:
     return _not_placeholder(v) and v.lower() not in {"pwd"}
 
 
+def _b64_has_colon(v: str) -> bool:
+    """Docker `auth` values are base64 of `user:password`."""
+    try:
+        return b":" in base64.b64decode(v + "=" * (-len(v) % 4), validate=True)
+    except (ValueError, binascii.Error):
+        return False
+
+
+# Key names that describe a secret rather than hold one: secretName, token_ttl, password_policy, api_key_id ...
+_NOT_META = (r"(?!izer|[_.\-]?(?:endpoint|url|uri|name|path|file|type|header|ttl|expiry|expires|limit|count|length|"
+             r"prefix|id|ref|policy|min|max|required|rotation|enabled|format|source|lifetime|validity|mode|version)s?\b)")
+
+
 SECRET_RULES: List[Rule] = [
     # The whole block, body included (also when newlines are JSON-escaped as in service-account files).
     Rule("secret.private_key", _r(
@@ -204,7 +219,7 @@ SECRET_RULES: List[Rule] = [
          _r(r"(?i)[\"']?(?<![A-Za-z0-9_.\-/\\])[A-Za-z0-9_.\-]*(?:passw(?:or)?d|pwd|passphrase)[A-Za-z0-9_.\-]*[\"']?\s*(?::=|=>|[:=])\s*[\"']([^\"'\s]{6,})[\"']"),
          1, _generic_ok_password),
     Rule("secret.generic_assignment",
-         _r(r"(?i)[\"']?(?<![A-Za-z0-9_.\-/\\])[A-Za-z0-9_.\-]*(?:secret|token|api[_\-]?key|apikey|access[_\-]?key|private[_\-]?key|client[_\-]?secret|auth[_\-]?key|credentials?)"
+         _r(r"(?i)[\"']?(?<![A-Za-z0-9_.\-/\\])[A-Za-z0-9_.\-]*(?:secret|token|api[_\-]?key|apikey|access[_\-]?key|private[_\-]?key|client[_\-]?secret|auth[_\-]?key|credentials?|(?:signing|encryption|hmac|master|session|jwt)[_\-]?key)"
             r"(?!izer|[_.\-]?(?:endpoint|url|uri|name|path|file|type|header|ttl|expiry|expires|limit|count|length|prefix|id)s?\b)"
             r"[A-Za-z0-9_.\-]*[\"']?\s*(?::=|=>|[:=])\s*[\"']([^\"'\s]{16,})[\"']"),
          1, _generic_ok_token),
@@ -213,8 +228,49 @@ SECRET_RULES: List[Rule] = [
          _r(r"(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:PASSWORD|PASSWD|PWD|PASSPHRASE)[A-Z0-9_]*\s*=\s*([^\s\"'#]{6,})"),
          1, _generic_ok_password),
     Rule("secret.generic_assignment",
-         _r(r"(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|CREDENTIALS?)[A-Z0-9_]*\s*=\s*([^\s\"'#]{16,})"),
+         _r(r"(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|CREDENTIALS?|(?:SIGNING|ENCRYPTION|HMAC|MASTER|SESSION|JWT)_?KEY)[A-Z0-9_]*\s*=\s*([^\s\"'#]{16,})"),
          1, _generic_ok_token),
+    # dotenv / shell style for personal access tokens: PAT=..., AZURE_DEVOPS_EXT_PAT=... (not PATH)
+    Rule("secret.generic_assignment",
+         _r(r"(?m)^\s*(?:export\s+)?(?:[A-Z0-9_]*_)?PAT\s*=\s*([^\s\"'#]{20,})"), 1, _generic_ok_token),
+    # unquoted YAML / config values: `password: abc...`, `token: abc...` (not `${VAR}` or `{{ template }}`)
+    Rule("secret.generic_assignment",
+         _r(r"(?im)^[ \t\-]*[\w.\-]*(?:passw(?:or)?d|pwd|passphrase)" + _NOT_META + r"[\w.\-]*[ \t]*:[ \t]+"
+            r"([^\s'\"#{}\[\]$<>]{8,})[ \t]*$"), 1, _generic_ok_password),
+    Rule("secret.generic_assignment",
+         _r(r"(?im)^[ \t\-]*[\w.\-]*(?:secret|token|api[_\-]?key|apikey|access[_\-]?key|private[_\-]?key|client[_\-]?secret|"
+            r"auth[_\-]?key|(?:signing|encryption|hmac|master|session|jwt|storage|account)[_\-]?key|credentials?)"
+            + _NOT_META + r"[\w.\-]*[ \t]*:[ \t]+([^\s'\"#{}\[\]$<>]{16,})[ \t]*$"), 1, _generic_ok_token),
+    # Azure
+    Rule("secret.azure_storage_key", _r(r"(?i)\bAccountKey=([A-Za-z0-9+/]{80,}={0,2})")),
+    Rule("secret.azure_sas_token", _r(r"(?i)[?&]sig=([A-Za-z0-9%+/=]{30,})"), 1),
+    Rule("secret.azure_client_secret",
+         _r(r"(?<![A-Za-z0-9_~.\-])[A-Za-z0-9_~.\-]{3}\dQ~[A-Za-z0-9_~.\-]{31,34}(?![A-Za-z0-9_~.\-])"),
+         validate=lambda v: shannon_entropy(v) >= 3.5),
+    # connection strings with key=value pairs (SQL Server, ADO.NET, ODBC, JDBC query strings)
+    Rule("secret.connection_string",
+         _r(r"(?i)(?:^|[;?&\s\"'])(?:password|pwd|passwd)=([^;&\s'\"]{6,})"), 1, _generic_ok_password),
+    # HTTP auth headers
+    Rule("secret.bearer_token", _r(r"(?i)\bBearer\s+([A-Za-z0-9\-._~+/]{20,}=*)"), 1,
+         validate=lambda v: shannon_entropy(v) >= 3.5 and _not_placeholder(v)),
+    # HashiCorp Vault and Terraform Cloud
+    Rule("secret.vault_token", _r(r"\bhv[sb]\.[A-Za-z0-9_\-]{24,}")),
+    Rule("secret.terraform_cloud_token", _r(r"\b[A-Za-z0-9]{14}\.atlasv1\.[A-Za-z0-9_\-]{60,}")),
+    # Docker registry auth (base64 of user:password) and kubeconfig keys
+    Rule("secret.docker_auth", _r(r"\"auth\"\s*:\s*\"([A-Za-z0-9+/]{16,}={0,2})\""), 1, validate=_b64_has_colon),
+    Rule("secret.private_key", _r(r"(?i)\bclient-key-data:\s*([A-Za-z0-9+/]{40,}={0,2})"), 1),
+    # Other services
+    Rule("secret.pypi_token", _r(r"\bpypi-AgEIcHlwaS5vcmc[A-Za-z0-9_\-]{50,}")),
+    Rule("secret.twilio_key", _r(r"\bSK[0-9a-f]{32}\b")),
+    Rule("secret.mailgun_key", _r(r"\bkey-[0-9a-f]{32}\b")),
+    Rule("secret.age_key", _r(r"\bAGE-SECRET-KEY-1[0-9A-Z]{58}\b")),
+    Rule("secret.grafana_token", _r(r"\b(?:glsa_[A-Za-z0-9]{32}_[0-9a-f]{8}|glc_[A-Za-z0-9+/]{32,}={0,2})")),
+    # PowerShell plain-text secure strings and CLI secret flags
+    Rule("secret.generic_assignment",
+         _r(r"(?i)ConvertTo-SecureString\s+(?:-String\s+)?['\"]([^'\"]{6,})['\"]"), 1, _generic_ok_password),
+    Rule("secret.generic_assignment",
+         _r(r"(?i)(?:^|\s)--?(?:password|client-secret|secret|token|api-key)(?:=|\s+)['\"]?([^\s'\"$]{8,})"), 1,
+         _generic_ok_password),
 ]
 
 PII_RULES: List[Rule] = [
@@ -352,18 +408,26 @@ SENSITIVE_NAME_GLOBS = [
     "credentials*.json", "credentials", "service-account*.json", "*serviceaccount*.json",
     "*.tfstate", "*.tfstate.*", "secrets.y*ml", "secrets.json", "secret.y*ml",
     ".bash_history", ".zsh_history", ".python_history", ".psql_history", ".mysql_history",
+    # infrastructure as code and cluster access
+    "*.tfvars", "*.tfvars.json", ".terraformrc", "terraform.rc", "credentials.tfrc.json",
+    "kubeconfig", "kubeconfig.*", "*.kubeconfig", ".vault-token", "vault.y*ml",
+    ".dockercfg", ".dockerconfigjson", "*.dockerconfigjson", "*.ovpn", ".s3cfg", ".boto",
+    "local.settings.json", "*-credentials.json", "*_credentials.json", "*-key.json", "*_key.json",
+    "*-secrets.y*ml", "*_secrets.y*ml", "*.secrets.y*ml", "environ",
+    ".ConsoleHost_history.txt", "ConsoleHost_history.txt",
 ]
 SENSITIVE_NAME_EXCEPTIONS = [
     "*.example", "*.sample", "*.template", "*.dist", "*.tmpl", ".env.*example*", "*.pub", "*.md",
 ]
 SENSITIVE_DIRS = {".ssh", ".aws", ".gnupg", "secrets", ".secrets", ".password-store"}
 SENSITIVE_SUFFIXES = [
-    ".docker/config.json", ".kube/config", ".config/gcloud", ".azure", ".config/gh/hosts.yml",
+    ".docker/config.json", ".kube/config", ".config/gcloud", ".azure", ".config/gh/hosts.yml", ".terraform.d/credentials.tfrc.json",
     "Library/Keychains",
 ]
 # Representative names used to test whether a shell glob could expand onto a sensitive file.
 _GLOB_PROBES = [".env", ".env.local", ".env.production", "id_rsa", "id_ed25519", "server.pem", "tls.key",
-                "credentials.json", ".npmrc", ".netrc", "terraform.tfstate", ".git-credentials"]
+                "credentials.json", ".npmrc", ".netrc", "terraform.tfstate", ".git-credentials",
+                "terraform.tfvars", "prod.auto.tfvars", "kubeconfig", ".vault-token"]
 
 
 def sensitive_path_reason(path: str) -> Optional[str]:

@@ -1,6 +1,6 @@
 {
  "version": "1.0.0",
- "installed_at": "2026-11-16T17:28:55",
+ "installed_at": "2026-11-17T10:29:32",
  "files": {
   ".claude/agents/code-reviewer.md": "7e5e0a048b355d44283393d50cd2e565c461e9cc6799254e69d4bd666d49e374",
   ".claude/agents/coding-agent.md": "8affb46a464bb34b4aa39f902b838b5cbe2b8bf86e2a662d6f1c563539c4534b",
@@ -19,7 +19,7 @@
   ".claude/harness.json": "3d23d87fcb0a0306bfc86c91f0b79a1133d03d47721c46d7de45d7d27b4eeae4",
   ".claude/hooks/context_guard.py": "cd0c0d93da465524e69c78a037dea100645ea9ce003b18059d8ad2700360d0a4",
   ".claude/hooks/doc_check.py": "c3ce60887befcb73c17434fa053485e6847a699b706b569b4da332386e58c949",
-  ".claude/hooks/guard_bash.py": "466137798c31128056bc0118c762b07dbf83799bafed7e2ae523f4e951fe8606",
+  ".claude/hooks/guard_bash.py": "1a2e0153f4456fede95669090191906c5c5997409e34903eb29794e5889ee4b1",
   ".claude/hooks/guard_compliance.py": "9b569612b99dff85214323200ec049ab9cc02e1e9a60b57ba3462336eb0ba569",
   ".claude/hooks/guard_egress.py": "283abd315a90561068687b695ded5a602e944e077806e0a5b9007e3a849e9f0c",
   ".claude/hooks/guard_prompt.py": "aa7d66361026fbc75ed0de0e0e1eb22ede9d69a199a2f2964c22d592bdeaca25",
@@ -29,8 +29,8 @@
   ".claude/hooks/housekeeping.py": "dc7d8cef6f71c305950923f46b854d27f69f8ceaf6588a0733b783fc06fc2de8",
   ".claude/hooks/kg_hooks.py": "7d998fbc1d9e7f669f77b50a767eef04744aedb9b5c5d88da2695cbe2d22fc6b",
   ".claude/hooks/lib/common.py": "6177d0bffe3d8a25674caf424e4d8bddf3d8f197e72ff5b79c21279d9786ae0e",
-  ".claude/hooks/lib/detectors.py": "e87d33a1e89e2de6948f05029ba87a03a4dcc3432773ca513d2986aca9b83b3a",
-  ".claude/hooks/redact_output.py": "24781c6e68b65171c5a24e94e797b108d9c8a9cacb286fb955fa849f82cf96f6",
+  ".claude/hooks/lib/detectors.py": "ace336b719a16adb390953eb3d7158dcec8d6d4e5cf4a63cf59e9fd2456f1ff9",
+  ".claude/hooks/redact_output.py": "67fd7c6acc904640e1ca797982309fae4aac26eaddbc01ff0d138b8408abf1c8",
   ".claude/hooks/session_start.py": "e34f6b29522ca5c06b2b101034f8a28f44d6817503190f8dd3c73d5bf56a304c",
   ".claude/hooks/stop_checks.py": "1e50a09c6880dd83f825e11dd072ea1fc203e93bb5637a83d554c953a37251c6",
   ".claude/knowledge/handoffs/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -351,7 +351,7 @@
    ],
    "PreToolUse": [
     {
-     "matcher": "Bash",
+     "matcher": "Bash|PowerShell",
      "hooks": [
       {
        "type": "command",
@@ -403,7 +403,7 @@
    ],
    "PostToolUse": [
     {
-     "matcher": "Bash|Grep|WebFetch|mcp__.*",
+     "matcher": "Bash|PowerShell|Grep|WebFetch|mcp__.*",
      "hooks": [
       {
        "type": "command",

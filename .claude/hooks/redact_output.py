@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PostToolUse Bash|Grep|WebFetch|mcp__*: defense-in-depth redaction of tool output.
+"""PostToolUse Bash|PowerShell|Grep|WebFetch|mcp__*: defense-in-depth redaction of tool output.
 
 Pre-tool guards are the primary control. If something still slips into a result,
 replace each matched value with ***REDACTED:<detector>*** while keeping the output's
