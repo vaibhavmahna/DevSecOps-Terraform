@@ -1,6 +1,6 @@
 ---
 name: token-budget
-description: Token-budget-conscious working style. Look up the knowledge graph before searching, delegate exploration to cheap agents, use ranged reads, avoid re-reading, and keep every agent under 50% of its context window. Use for any multi-step task, large codebase exploration, long sessions, or when a [harness:context] warning appears.
+description: Token-budget-conscious working style. Look up the knowledge graph before searching, delegate exploration to cheap agents, use ranged reads, avoid re-reading, and keep every agent under 75% of its context window (warning at 70%). Use for any multi-step task, large codebase exploration, long sessions, or when a [harness:context] warning appears.
 ---
 
 # Token budget

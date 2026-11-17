@@ -1,75 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "env": {
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85"
-  },
-  "fallbackModel": [
-    "opus"
-  ],
   "permissions": {
-    "allow": [
-      "Bash(git status*)",
-      "Bash(git diff*)",
-      "Bash(git log*)",
-      "Bash(git show*)",
-      "Bash(git add *)",
-      "Bash(git commit -m *)",
-      "Bash(git branch)",
-      "Bash(git branch --list*)",
-      "Bash(git branch -a*)",
-      "Bash(git switch *)",
-      "Bash(git checkout -b *)",
-      "Bash(git stash list*)",
-      "Bash(git stash push*)",
-      "Bash(git fetch*)",
-      "Bash(git blame *)",
-      "Bash(git remote -v)",
-      "Bash(git ls-files*)",
-      "Bash(git rev-parse *)",
-      "Bash(ls)",
-      "Bash(ls *)",
-      "Bash(pwd)",
-      "Bash(cat *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(wc *)",
-      "Bash(tree*)",
-      "Bash(grep *)",
-      "Bash(rg *)",
-      "Bash(gh pr view*)",
-      "Bash(gh pr list*)",
-      "Bash(gh pr checks*)",
-      "Bash(gh pr diff*)",
-      "Bash(docker compose ps*)",
-      "Bash(docker compose logs*)",
-      "Bash(python3 .claude/tools/kg.py *)",
-      "Bash(python3 .claude/tools/save.py *)",
-      "Bash(python3 .claude/tools/safe_read.py *)",
-      "Bash(python3 .claude/tools/svg_lint.py *)",
-      "Bash(python3 .claude/tools/doc_format.py *)",
-      "Bash(python3 .claude/tools/cleanup.py *)",
-      "Bash(python3 .claude/tools/stack.py*)",
-      "Bash(python3 .claude/tools/doctor.py*)",
-      "Bash(python3 .claude/tools/compliance.py *)"
-    ],
-    "ask": [
-      "Bash(git push)",
-      "Bash(git push *)",
-      "Bash(git rebase *)",
-      "Bash(git commit --amend*)",
-      "Bash(npm install *)",
-      "Bash(npm i *)",
-      "Bash(pnpm add *)",
-      "Bash(pnpm install *)",
-      "Bash(yarn add *)",
-      "Bash(pip install *)",
-      "Bash(pip3 install *)",
-      "Bash(poetry add *)",
-      "Bash(uv add *)",
-      "Bash(docker push *)",
-      "Bash(gh pr create*)",
-      "WebFetch"
-    ],
     "deny": [
       "Read(**/.env)",
       "Read(**/.env.local)",
@@ -204,11 +135,80 @@
       "Bash(cat ~/.ssh/*)",
       "Bash(cat ~/.aws/*)"
     ],
+    "ask": [
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git rebase *)",
+      "Bash(git commit --amend*)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm install *)",
+      "Bash(yarn add *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(poetry add *)",
+      "Bash(uv add *)",
+      "Bash(docker push *)",
+      "Bash(gh pr create*)",
+      "WebFetch"
+    ],
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(git branch)",
+      "Bash(git branch --list*)",
+      "Bash(git branch -a*)",
+      "Bash(git switch *)",
+      "Bash(git checkout -b *)",
+      "Bash(git stash list*)",
+      "Bash(git stash push*)",
+      "Bash(git fetch*)",
+      "Bash(git blame *)",
+      "Bash(git remote -v)",
+      "Bash(git ls-files*)",
+      "Bash(git rev-parse *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(tree*)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr diff*)",
+      "Bash(docker compose ps*)",
+      "Bash(docker compose logs*)",
+      "Bash(python3 .claude/tools/kg.py *)",
+      "Bash(python3 .claude/tools/save.py *)",
+      "Bash(python3 .claude/tools/safe_read.py *)",
+      "Bash(python3 .claude/tools/svg_lint.py *)",
+      "Bash(python3 .claude/tools/doc_format.py *)",
+      "Bash(python3 .claude/tools/cleanup.py *)",
+      "Bash(python3 .claude/tools/stack.py*)",
+      "Bash(python3 .claude/tools/doctor.py*)",
+      "Bash(python3 .claude/tools/compliance.py *)"
+    ],
     "disableBypassPermissionsMode": "disable"
   },
+  "fallbackModel": [
+    "opus"
+  ],
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85"
+  },
   "sandbox": {
-    "autoAllowBashIfSandboxed": false,
     "enabled": true,
+    "autoAllowBashIfSandboxed": false,
     "filesystem": {
       "denyRead": [
         "~/.ssh",
@@ -225,8 +225,8 @@
     }
   },
   "statusLine": {
-    "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/tools/statusline.py\"",
-    "type": "command"
+    "type": "command",
+    "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/tools/statusline.py\""
   },
   "hooks": {
     "SessionStart": [

@@ -1,6 +1,6 @@
 {
  "version": "1.0.0",
- "installed_at": "2026-11-16T16:47:42",
+ "installed_at": "2026-11-16T17:28:55",
  "files": {
   ".claude/agents/code-reviewer.md": "7e5e0a048b355d44283393d50cd2e565c461e9cc6799254e69d4bd666d49e374",
   ".claude/agents/coding-agent.md": "8affb46a464bb34b4aa39f902b838b5cbe2b8bf86e2a662d6f1c563539c4534b",
@@ -74,7 +74,7 @@
   ".claude/skills/secure-coding/references/patterns.md": "5067870e4253dcf87c09d4fd660a8c3319de0a20d1b5415564e8ceb7ef105a3a",
   ".claude/skills/simple-design/SKILL.md": "66ebb854de705e6fcda9b60f10497812c9d8eaa5b6d4fbadc94ab99852452678",
   ".claude/skills/test-driven-dev/SKILL.md": "582f2a2dfddac1174f76f968dd240e29588378f85a30d165602cf42dcd66d8b2",
-  ".claude/skills/token-budget/SKILL.md": "2f5217345f2b5a1ad58e7f921cb10c72087c38b8bf8725c160ad97fc33fd6d2d",
+  ".claude/skills/token-budget/SKILL.md": "05195d04fdca63296288ac860c1f8c9cb7bbaf10344b4da5fa1b8143627076cb",
   ".claude/tools/cleanup.py": "e7daeaa8dd10ce4144e07dfe8ab25bee19e377242142a5c133fddcfc22e6211d",
   ".claude/tools/compliance.py": "65404ecfd625a641c10473730ddef2aebd2c300f54aaa5f86463b7b6313f64e5",
   ".claude/tools/doc_format.py": "366781baa0f6b818ca39e0cc298a06fcb54c6cb56a06ea5eb3c69ae25112235c",
