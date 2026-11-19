@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 try:
     from common import PREFIX, UNBLOCK_HINT, emit, load_config, scan_local, project_dir, run_guard  # noqa: E402
-    from detectors import Allowlist, summarize  # noqa: E402
+    from detectors import Allowlist, scan_prompt_extra, summarize  # noqa: E402
 except Exception:  # noqa: BLE001 - a broken install must not let the call through
     import json
     _MSG = "[harness:security] guard could not load (harness files damaged); blocked to be safe. Re-run install.py."
@@ -17,7 +17,11 @@ except Exception:  # noqa: BLE001 - a broken install must not let the call throu
 def main(event):
     proj = project_dir(event)
     cfg = load_config(proj)["scan"]
-    findings = scan_local(event.get("prompt", ""), Allowlist.load(proj), cfg)
+    prompt = event.get("prompt", "")
+    allow = Allowlist.load(proj)
+    findings = scan_local(prompt, allow, cfg)
+    findings += [f for f in scan_prompt_extra(prompt, allow)
+                 if not any(f.start < g.end and g.start < f.end for g in findings)]
     if findings:
         emit({
             "decision": "block",

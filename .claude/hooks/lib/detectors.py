@@ -227,8 +227,16 @@ SECRET_RULES: List[Rule] = [
     Rule("secret.generic_assignment",
          _r(r"(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:PASSWORD|PASSWD|PWD|PASSPHRASE)[A-Z0-9_]*\s*=\s*([^\s\"'#]{6,})"),
          1, _generic_ok_password),
+    # the same, mid-line: `use SIGNING_KEY=...`, `--set secretEnv.SIGNING_KEY=...` (not `$VAR`, `${x}`, `f(x)`)
+    Rule("secret.generic_assignment",
+         _r(r"(?<![A-Za-z0-9_])[A-Z0-9_]*(?:PASSWORD|PASSWD|PASSPHRASE)[A-Z0-9_]*=([^\s\"'#$({\[]{6,})"),
+         1, _generic_ok_password),
     Rule("secret.generic_assignment",
          _r(r"(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|CREDENTIALS?|(?:SIGNING|ENCRYPTION|HMAC|MASTER|SESSION|JWT)_?KEY)[A-Z0-9_]*\s*=\s*([^\s\"'#]{16,})"),
+         1, _generic_ok_token),
+    Rule("secret.generic_assignment",
+         _r(r"(?<![A-Za-z0-9_])[A-Z0-9_]*(?:SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|CREDENTIALS?|"
+            r"(?:SIGNING|ENCRYPTION|HMAC|MASTER|SESSION|JWT)_?KEY)[A-Z0-9_]*=([^\s\"'#$({\[]{16,})"),
          1, _generic_ok_token),
     # dotenv / shell style for personal access tokens: PAT=..., AZURE_DEVOPS_EXT_PAT=... (not PATH)
     Rule("secret.generic_assignment",
@@ -241,6 +249,11 @@ SECRET_RULES: List[Rule] = [
          _r(r"(?im)^[ \t\-]*[\w.\-]*(?:secret|token|api[_\-]?key|apikey|access[_\-]?key|private[_\-]?key|client[_\-]?secret|"
             r"auth[_\-]?key|(?:signing|encryption|hmac|master|session|jwt|storage|account)[_\-]?key|credentials?)"
             + _NOT_META + r"[\w.\-]*[ \t]*:[ \t]+([^\s'\"#{}\[\]$<>]{16,})[ \t]*$"), 1, _generic_ok_token),
+    # credentials in URL query strings: ?api_key=..., &access_token=... (not ${VAR} / {{ tmpl }})
+    Rule("secret.url_credential",
+         _r(r"(?i)[?&#](?:api[_\-]?key|apikey|key|token|access[_\-]?token|auth[_\-]?token|id[_\-]?token|secret|"
+            r"client[_\-]?secret|password|passwd|pwd|code|signature)=([^&\s#'\"$<>{}]{12,})"),
+         1, _generic_ok_token),
     # Azure
     Rule("secret.azure_storage_key", _r(r"(?i)\bAccountKey=([A-Za-z0-9+/]{80,}={0,2})")),
     Rule("secret.azure_sas_token", _r(r"(?i)[?&]sig=([A-Za-z0-9%+/=]{30,})"), 1),
@@ -290,6 +303,52 @@ ALL_DETECTORS = sorted({r.name for r in SECRET_RULES + PII_RULES})
 
 
 # ---------------------------------------------------------------- allowlist
+
+# Prompt-only rules. A person typing "the key is X" or pasting a bare random string is a likelier leak than
+# code is, so prompts get looser rules that would be too noisy for file scans.
+def _mixed_secret(v: str) -> bool:
+    """Looks generated: upper, lower and digits (base64/random), or long hex; high entropy; not a placeholder."""
+    classes = bool(re.search(r"[A-Z]", v)) and bool(re.search(r"[a-z]", v)) and len(re.findall(r"\d", v)) >= 2
+    hexy = len(v) >= 32 and re.fullmatch(r"[0-9a-fA-F]+", v) is not None
+    return (classes or hexy) and _not_placeholder(v) and shannon_entropy(v) >= 3.5
+
+
+def _bare_secret(v: str) -> bool:
+    return _mixed_secret(v) and len(re.findall(r"\d", v)) >= 3 and shannon_entropy(v) >= 4.0
+
+
+PROMPT_RULES: List[Rule] = [
+    # "signing key is X", "my token: X", "set SIGNING_KEY to X", "password - X"
+    Rule("secret.stated_in_prompt",
+         _r(r"(?i)\b(?:[a-z0-9]+[_\-.])*(?:key|secret|token|password|passwd|passphrase|pat|credentials?|apikey)s?\b"
+            r"[^\n]{0,12}?(?:\bis\b|\bto\b|\bas\b|:|=|-)\s*[\"'`]?([A-Za-z0-9+/=_\-.~]{12,})"),
+         1, _mixed_secret),
+    # "the db password is Tr0ub4dor&3x": passwords may hold symbols, so a wider value class
+    Rule("secret.stated_in_prompt",
+         _r(r"(?i)\b(?:passw(?:or)?d|pwd|passphrase|pin)s?\b[^\n]{0,12}?(?:\bis\b|\bto\b|:|=|-)\s*[\"'`]?([^\s\"'`]{8,})"),
+         1, lambda v: _generic_ok_password(v) and bool(re.search(r"\d", v)) and bool(re.search(r"[A-Za-z]", v))
+         and not re.match(r"(?i)^(?:\$|\{|%|<|https?://|\.{0,2}/)", v)),
+    # a bare generated value: `openssl rand -base64 32`, a random API key with no name
+    Rule("secret.random_string",
+         _r(r"(?<![\w/+=.\-:@])([A-Za-z0-9+/_\-]{32,}={0,2})(?![\w/+=.\-])"), 1, _bare_secret),
+]
+
+
+def scan_prompt_extra(text: str, allow: Optional["Allowlist"] = None) -> List["Finding"]:
+    """Extra prompt-only findings, outside the spans scan_text already reported."""
+    allow = allow or Allowlist()
+    out: List[Finding] = []
+    for rule in PROMPT_RULES:
+        if rule.name in allow.disabled:
+            continue
+        for m in rule.regex.finditer(text or ""):
+            v = m.group(rule.group)
+            if v and rule.validate(v):
+                f = Finding(rule.name, m.start(rule.group), m.end(rule.group), v)
+                if f.sha256 not in allow.hashes and not any(f.start < g.end and g.start < f.end for g in out):
+                    out.append(f)
+    return out
+
 
 class Allowlist:
     """Human-maintained exceptions (`.claude/security/allowlist`)."""
@@ -414,7 +473,7 @@ SENSITIVE_NAME_GLOBS = [
     ".dockercfg", ".dockerconfigjson", "*.dockerconfigjson", "*.ovpn", ".s3cfg", ".boto",
     "local.settings.json", "*-credentials.json", "*_credentials.json", "*-key.json", "*_key.json",
     "*-secrets.y*ml", "*_secrets.y*ml", "*.secrets.y*ml", "environ",
-    ".ConsoleHost_history.txt", "ConsoleHost_history.txt",
+    ".consolehost_history.txt", "consolehost_history.txt",
 ]
 SENSITIVE_NAME_EXCEPTIONS = [
     "*.example", "*.sample", "*.template", "*.dist", "*.tmpl", ".env.*example*", "*.pub", "*.md",
